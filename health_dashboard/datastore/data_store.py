@@ -19,7 +19,7 @@ from models.health_data import HealthData  # Base class
 from models.sleep_data import SleepData    # Example subclass
 
 class DataStore:
-    def __init__(self, filename: str = "health_data_store.json"):
+    def __init__(self, filename: str = "data/health_data_store.json"):
         self.filename = filename
 
     def load_data(self) -> Dict[str, HealthData]:

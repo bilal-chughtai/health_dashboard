@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from connectors.oura_connector import OuraConnector
 from datastore.data_store import DataStore 
 from exporters.google_sheet_exporter import GoogleSheetExporter
+from exporters.dataframe_exporter import DataFrameExporter
 from datetime import datetime, timedelta
 
 def main():
@@ -32,9 +33,10 @@ def main():
     # Retrieve and print all stored data
     all_stored_data = data_store.get_all_data()
     
-    # Initialize the GoogleSheetExporter
+    dataframe_exporter = DataFrameExporter()
+    df = dataframe_exporter.list_to_dataframe(all_stored_data)
+    dataframe_exporter.write_df_to_csv(df)
     google_sheet_exporter = GoogleSheetExporter()
-    df = google_sheet_exporter.list_to_dataframe(all_stored_data)
     google_sheet_exporter.export_dataframe_to_sheet(df)
     
 
