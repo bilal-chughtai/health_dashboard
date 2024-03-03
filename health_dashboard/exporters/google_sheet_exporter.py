@@ -38,7 +38,38 @@ class GoogleSheetExporter:
             return
         
         # Use gspread_dataframe to export the DataFrame to the specified Google Sheet and worksheet
+        df = self.add_missing_days(df)
         set_with_dataframe(sheet, df, include_index=False)
 
         print(f"Data successfully exported to Google Sheets: '{self.sheet_name}' in worksheet '{self.worksheet_name}'.")
     
+    def add_missing_days(self, df):
+        """Add missing days to the dataframe and fill in the missing values with blank strings.
+        
+        Parameters:
+        - df: The dataframe to add missing days to.
+        """
+        # Create a defaultdict to store the data
+        data = defaultdict(list)
+        
+        # Get the date range from the dataframe
+        date_range = pd.date_range(start=df['day'].min(), end=df['day'].max())
+        
+        # Iterate over the date range and add missing days to the defaultdict
+        for date in date_range:
+            date = date.date()
+            if date not in df['day'].values:
+                data['day'].append(date)
+                for metric in df.columns[1:]:
+                    data[metric].append('')
+        
+        # Create a new dataframe from the defaultdict
+        missing_days_df = pd.DataFrame(data)
+        
+        # Concatenate the original dataframe and the new dataframe with missing days
+        df = pd.concat([df, missing_days_df])
+        
+        # Sort the dataframe by date
+        df = df.sort_values(by='day')
+        
+        return df
