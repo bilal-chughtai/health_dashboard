@@ -1,22 +1,31 @@
 import json
-from datetime import datetime, date
-from typing import List, Type, Dict
-from models.health_data import HealthData  # Ensure this is your base class for health data types
-from models.sleep_data import SleepData  
-from models.activity_data import ActivityData  
-from models.readiness_data import ReadinessData  
+from typing import Dict, List
+
+from health_dashboard.models.activity_data import ActivityData
+from health_dashboard.models.bodyweight_data import BodyweightData
+from health_dashboard.models.health_data import \
+    HealthData  # Ensure this is your base class for health data types
+from health_dashboard.models.lift_data import LiftData
+from health_dashboard.models.readiness_data import ReadinessData
+from health_dashboard.models.sleep_data import SleepData
+from health_dashboard.models.steps_data import StepsData
+
+
+import json
+from typing import Dict
+
+from health_dashboard.models.health_data import HealthData  # Base class
+from health_dashboard.models.sleep_data import SleepData  # Example subclass
 
 # Map for resolving type strings to classes
 type_map = {
     'SleepData': SleepData,
     'ReadinessData': ReadinessData,
-    'ActivityData': ActivityData
+    'ActivityData': ActivityData,
+    'StepsData': StepsData,
+    'BodyweightData': BodyweightData,
+    'LiftData': LiftData
 }
-
-import json
-from typing import Dict, Type
-from models.health_data import HealthData  # Base class
-from models.sleep_data import SleepData    # Example subclass
 
 class DataStore:
     def __init__(self, filename: str = "data/health_data_store.json"):
@@ -24,11 +33,14 @@ class DataStore:
 
     def load_data(self) -> Dict[str, HealthData]:
         """Load health data from a JSON file into a dictionary."""
+        
         try:
             with open(self.filename, "r") as file:
                 data = json.load(file)
                 return {k: self._deserialize(v) for k, v in data.items()}
         except (FileNotFoundError, json.JSONDecodeError):
+            print("No data store found. Creating data store")
+            self.save_data({})
             return {}
 
     def save_data(self, health_data_dict: Dict[str, HealthData]):

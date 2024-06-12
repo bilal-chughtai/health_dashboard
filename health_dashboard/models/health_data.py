@@ -1,7 +1,6 @@
 from datetime import datetime
-from typing import Optional
 
-class HealthData:
+class HealthData():
     def __init__(self, timestamp: datetime, source: str):
         """
         Initialize a HealthData instance.

@@ -1,11 +1,14 @@
-from models.health_data import HealthData
+from health_dashboard.models.health_data import HealthData
 from collections import defaultdict
 import pandas as pd
 
 CLASS_NAMES_TO_COLUMN_NAMES = {
     "SleepData": "sleep",
     "ReadinessData": "readiness",
-    "ActivityData": "activity"
+    "ActivityData": "activity",
+    "StepsData": "steps",
+    "BodyweightData": "bodyweight",
+    "LiftData": "lift"
 }
 
 
@@ -25,12 +28,12 @@ class DataFrameExporter:
             # Dynamically find score attributes and values
             for attr, value in data.__dict__.items():
                 if "score" in attr:
-                    data_dict[day][f"{CLASS_NAMES_TO_COLUMN_NAMES[class_name]}_{attr}"].append(value)
+                    data_dict[day][f"{CLASS_NAMES_TO_COLUMN_NAMES[class_name]}"].append(value)
 
         # Convert the nested dictionary into a DataFrame-friendly format
         formatted_data = []
         for day, scores in data_dict.items():
-            row = {'day': day}
+            row = {'date': day}
             for score_type, score_values in scores.items():
                 # Assuming we want the average score if there are multiple entries per day
                 row[score_type] = sum(score_values) / len(score_values)
@@ -38,7 +41,7 @@ class DataFrameExporter:
 
         # create the dataframe
         df = pd.DataFrame(formatted_data)
-        df = df.sort_values(by='day')
+        df = df.sort_values(by='date')
         
         return df
     

@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "health-data"
+name = "health_dashboard"
 version = "0.1.0"
 description = "Collate health data from various services into one place."
 authors = ["Bilal Chughtai <brchughtaii@gmail.com>"]
@@ -21,3 +21,6 @@ dash = "^2.15.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+typeCheckingMode = "off"

@@ -1,11 +1,11 @@
-# Assuming SleepData is defined in models/sleep_data.py
-from models.health_data import HealthData
-from models.sleep_data import SleepData
-from models.readiness_data import ReadinessData
-from models.activity_data import ActivityData
+from health_dashboard.models.steps_data import StepsData
+from health_dashboard.models.health_data import HealthData
+from health_dashboard.models.sleep_data import SleepData
+from health_dashboard.models.readiness_data import ReadinessData
+from health_dashboard.models.activity_data import ActivityData
 from datetime import datetime
 from oura_ring import OuraClient
-from connectors.api_connector import APIConnector
+from health_dashboard.connectors.api_connector import APIConnector
 
 class OuraConnector(APIConnector):
     def __init__(self, access_token: str):
@@ -14,11 +14,10 @@ class OuraConnector(APIConnector):
 
         :param access_token: The access token for the Oura API.
         """
-        super().__init__(access_token)
         self.client = OuraClient(access_token)
         self.source_name = "oura"
-        
-    def get_all_data(self, start_date: str = None, end_date: str = None) -> list[HealthData]:
+
+    def get_all_data(self, start_date: str | None = None, end_date: str | None = None) -> list[HealthData]:
         """
         Fetch all data from the Oura API and return a list of HealthData objects.
 
@@ -29,9 +28,10 @@ class OuraConnector(APIConnector):
         sleep_data = self.get_daily_sleep(start_date, end_date)
         readiness_data = self.get_daily_readiness(start_date, end_date)
         activity_data = self.get_daily_activity(start_date, end_date)
-        all_data = sleep_data + readiness_data + activity_data
+        steps_data = self.get_steps_data(start_date, end_date)
+        all_data = sleep_data + readiness_data + activity_data + steps_data
         return all_data
-        
+
     def get_daily_sleep(self, start_date: str = None, end_date: str = None) -> list[SleepData]:
         """
         Fetch daily sleep data for a specified date range and return a list of SleepData objects.
@@ -41,8 +41,7 @@ class OuraConnector(APIConnector):
         :return: A list of SleepData objects with the sleep data from the Oura API.
         """
         # Fetch sleep data from the Oura API
-        with OuraClient(self.access_token) as client:
-            sleep_data_response = client.get_daily_sleep(start_date=start_date, end_date=end_date)
+        sleep_data_response = self.client.get_daily_sleep(start_date=start_date, end_date=end_date)
 
         # Transform the API response into SleepData objects
         sleep_data_objects = []
@@ -54,7 +53,7 @@ class OuraConnector(APIConnector):
             sleep_data_objects.append(sleep_data)
 
         return sleep_data_objects
-    
+
     def get_daily_readiness(self, start_date: str = None, end_date: str = None) -> list[ReadinessData]:
         """
         Fetch daily readiness data for a specified date range and return a list of ReadinessData objects.
@@ -64,8 +63,7 @@ class OuraConnector(APIConnector):
         :return: A list of ReadinessData objects with the readiness data from the Oura API.
         """
         # Fetch readiness data from the Oura API
-        with OuraClient(self.access_token) as client:
-            readiness_data_response = client.get_daily_readiness(start_date=start_date, end_date=end_date)
+        readiness_data_response = self.client.get_daily_readiness(start_date=start_date, end_date=end_date)
 
         # Transform the API response into ReadinessData objects
         readiness_data_objects = []
@@ -77,7 +75,7 @@ class OuraConnector(APIConnector):
             readiness_data_objects.append(readiness_data)
 
         return readiness_data_objects
-    
+
     def get_daily_activity(self, start_date: str = None, end_date: str = None) -> list[ActivityData]:
         """
         Fetch daily activity data for a specified date range and return a list of ActivityData objects.
@@ -87,8 +85,7 @@ class OuraConnector(APIConnector):
         :return: A list of ActivityData objects with the activity data from the Oura API.
         """
         # Fetch activity data from the Oura API
-        with OuraClient(self.access_token) as client:
-            activity_data_response = client.get_daily_activity(start_date=start_date, end_date=end_date)
+        activity_data_response = self.client.get_daily_activity(start_date=start_date, end_date=end_date)
 
         # Transform the API response into ActivityData objects
         activity_data_objects = []
@@ -101,3 +98,24 @@ class OuraConnector(APIConnector):
 
         return activity_data_objects
 
+    def get_steps_data(self, start_date: str = None, end_date: str = None) -> list[StepsData]:
+        """
+        Fetch daily steps data for a specified date range and return a list of StepsData objects.
+
+        :param start_date: The start date for fetching steps data in YYYY-MM-DD format. Defaults to yesterday.
+        :param end_date: The end date for fetching steps data in YYYY-MM-DD format. Defaults to today.
+        :return: A list of StepsData objects with the steps data from the Oura API.
+        """
+        # Fetch steps data from the Oura API
+        activity_response = self.client.get_daily_activity(start_date=start_date, end_date=end_date)
+
+        # Transform the API response into StepsData objects
+        steps_data_objects = []
+        for activity_entry in activity_response:
+            # Each entry is one day of steps data
+            timestamp = datetime.fromisoformat(activity_entry["timestamp"])
+            steps = activity_entry["steps"]
+            steps_data = StepsData(timestamp=timestamp, source=self.source_name, score=steps)
+            steps_data_objects.append(steps_data)
+
+        return steps_data_objects

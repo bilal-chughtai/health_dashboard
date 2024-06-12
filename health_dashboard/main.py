@@ -1,10 +1,12 @@
 import os
 from dotenv import load_dotenv
-from connectors.oura_connector import OuraConnector
-from datastore.data_store import DataStore 
-from exporters.google_sheet_exporter import GoogleSheetExporter
-from exporters.dataframe_exporter import DataFrameExporter
+from health_dashboard.connectors.oura_connector import OuraConnector
+from health_dashboard.datastore.data_store import DataStore 
+from health_dashboard.exporters.google_sheet_exporter import GoogleSheetExporter
+from health_dashboard.exporters.dataframe_exporter import DataFrameExporter
 from datetime import datetime, timedelta
+
+from health_dashboard.connectors.gsheet_connector import GSheetConnector
 
 def main():
     load_dotenv()
@@ -12,7 +14,8 @@ def main():
     
     # Initialize connectors
     oura_connector = OuraConnector(oura_access_token)
-    connectors = [oura_connector]
+    gsheet_connector = GSheetConnector()
+    connectors = [gsheet_connector, oura_connector]
     
     # Initialize the DataStore
     data_store = DataStore()

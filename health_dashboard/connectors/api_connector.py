@@ -1,13 +1,15 @@
-class APIConnector:
-    def __init__(self, access_token: str):
+from abc import ABC
+
+from health_dashboard.models.health_data import HealthData
+
+
+class APIConnector(ABC):
+    def __init__(self):
         """
         Initialize the API connector with an access token.
-
-        :param access_token: The access token for authentication.
         """
-        self.access_token = access_token
 
-    def fetch_data(self):
+    def get_all_data(self) -> list[HealthData]:
         """
         Placeholder method for fetching data. Specific connectors will implement this method.
         """

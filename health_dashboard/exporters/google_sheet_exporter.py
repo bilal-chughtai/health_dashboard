@@ -53,13 +53,13 @@ class GoogleSheetExporter:
         data = defaultdict(list)
         
         # Get the date range from the dataframe
-        date_range = pd.date_range(start=df['day'].min(), end=df['day'].max())
+        date_range = pd.date_range(start=df['date'].min(), end=df['date'].max())
         
         # Iterate over the date range and add missing days to the defaultdict
         for date in date_range:
             date = date.date()
-            if date not in df['day'].values:
-                data['day'].append(date)
+            if date not in df['date'].values:
+                data['date'].append(date)
                 for metric in df.columns[1:]:
                     data[metric].append('')
         
@@ -70,6 +70,6 @@ class GoogleSheetExporter:
         df = pd.concat([df, missing_days_df])
         
         # Sort the dataframe by date
-        df = df.sort_values(by='day')
+        df = df.sort_values(by='date', ascending=False)
         
         return df
