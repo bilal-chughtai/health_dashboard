@@ -12,6 +12,7 @@ class GSheetConnector(APIConnector):
         self.client = self.authenticate_google_sheets()
         self.sheet_name = "Health"
         self.worksheet_name = "manual"
+        self.source_name = "google_sheets"
         
     def authenticate_google_sheets(self):
         """Authenticate with Google Sheets API using service account credentials."""

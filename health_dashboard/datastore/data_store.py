@@ -14,8 +14,9 @@ from health_dashboard.models.steps_data import StepsData
 import json
 from typing import Dict
 
-from health_dashboard.models.health_data import HealthData  # Base class
-from health_dashboard.models.sleep_data import SleepData  # Example subclass
+from health_dashboard.models.health_data import HealthData 
+from health_dashboard.models.sleep_data import SleepData 
+from health_dashboard.models.nutrition_data import NutritionData
 
 # Map for resolving type strings to classes
 type_map = {
@@ -24,7 +25,8 @@ type_map = {
     'ActivityData': ActivityData,
     'StepsData': StepsData,
     'BodyweightData': BodyweightData,
-    'LiftData': LiftData
+    'LiftData': LiftData,
+    'NutritionData': NutritionData
 }
 
 class DataStore:

@@ -7,6 +7,7 @@ from health_dashboard.exporters.dataframe_exporter import DataFrameExporter
 from datetime import datetime, timedelta
 
 from health_dashboard.connectors.gsheet_connector import GSheetConnector
+from health_dashboard.connectors.cronometer_connector import CronometerConnector
 
 def main():
     load_dotenv()
@@ -15,7 +16,8 @@ def main():
     # Initialize connectors
     oura_connector = OuraConnector(oura_access_token)
     gsheet_connector = GSheetConnector()
-    connectors = [gsheet_connector, oura_connector]
+    cronometer_connector = CronometerConnector()
+    connectors = [oura_connector, gsheet_connector, cronometer_connector]
     
     # Initialize the DataStore
     data_store = DataStore()
@@ -29,6 +31,7 @@ def main():
     
     # Get data and store it using DataStore
     for connector in connectors:
+        print(f"Getting data from {connector.source_name}...")
         data = connector.get_all_data(week_ago_str, today_str)  
         for data_entry in data:
             data_store.add_data(data_entry)
