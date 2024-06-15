@@ -1,4 +1,4 @@
-from models.health_data import HealthData
+from health_dashboard.models.health_data import HealthData
 from datetime import datetime
 
 class ReadinessData(HealthData):

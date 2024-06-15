@@ -1,9 +1,9 @@
 import csv
 from io import StringIO
 import json
-from pprint import pprint
+from typing import Sequence, Type
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -26,7 +26,7 @@ class CronometerConnector(APIConnector):
         self.base_url = "https://cronometer.com/cronometer/app"
         self.secrets = self.get_secrets()
 
-    def get_secrets(self, path = ".secrets.json"):
+    def get_secrets(self, path: str = ".secrets.json"):
         with open(path) as f:
             secrets = json.load(f)
         return secrets
@@ -43,8 +43,7 @@ class CronometerConnector(APIConnector):
 
         # Set up Chrome options to use the existing user profile
         chrome_options = Options()
-        chrome_options.add_argument("--headless")
-
+        chrome_options.add_argument("--headless")  # type: ignore
 
         # Initialize the WebDriver
         service = Service(chrome_driver_path)
@@ -64,10 +63,14 @@ class CronometerConnector(APIConnector):
             time.sleep(2)
 
             # Get the cookies
-            cookie = driver.get_cookie("sesnonce")
+            cookie = driver.get_cookie("sesnonce")  # type: ignore
             if not cookie:
                 raise ValueError("sesnonce cookie not found")
+            if not isinstance(cookie["value"], str):
+                raise ValueError("sesnonce cookie value is not a string")
+
             self.sesnonce = cookie["value"]
+
         finally:
             # Close the driver
             pass
@@ -100,7 +103,7 @@ class CronometerConnector(APIConnector):
 
     def get_all_data(
         self, start_date: str | None = None, end_date: str | None = None
-    ) -> list[HealthData]:
+    ) -> Sequence[NutritionData]:
         """
         Fetch all data from the Cronometer API and return a list of HealthData objects.
 
@@ -113,12 +116,11 @@ class CronometerConnector(APIConnector):
         )
         self._authenticate()
         nutrition_data = self.get_daily_nutrition(start_date, end_date)
-        all_data = nutrition_data
-        return all_data
+        return nutrition_data
 
     def get_daily_nutrition(
-        self, start_date: str = None, end_date: str = None
-    ) -> list[NutritionData]:
+        self, start_date: str | None = None, end_date: str | None = None
+    ) -> Sequence[NutritionData]:
         """
         Fetch daily nutrition data for a specified date range and return a list of NutritionData objects.
 
@@ -127,7 +129,9 @@ class CronometerConnector(APIConnector):
         :return: A list of NutritionData objects with the nutrition data from the Cronometer API.
         """
         if not start_date:
-            start_date = (datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+            start_date = (datetime.now() - timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            )
         if not end_date:
             end_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -137,7 +141,9 @@ class CronometerConnector(APIConnector):
         if code == 200:
             response_csv = response.text
         else:
-            print(f"Warning: Failed to fetch data from Cronometer API. Status code: {code}")
+            print(
+                f"Warning: Failed to fetch data from Cronometer API. Status code: {code}"
+            )
             return []
 
         csv_file = StringIO(response_csv)

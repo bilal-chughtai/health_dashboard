@@ -1,9 +1,9 @@
-from models.health_data import HealthData
+from health_dashboard.models.health_data import HealthData
 from datetime import datetime
 
 
 class BodyweightData(HealthData):
-    def __init__(self, timestamp: datetime, source: str, score: int):
+    def __init__(self, timestamp: datetime, source: str, score: float):
         """
         Initialize a Bodywight instance.
 

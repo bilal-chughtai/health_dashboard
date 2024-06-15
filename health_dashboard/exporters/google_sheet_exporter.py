@@ -2,7 +2,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from gspread_dataframe import set_with_dataframe
 import pandas as pd
-from models.health_data import HealthData
+from health_dashboard.models.health_data import HealthData
 from collections import defaultdict
 
 
@@ -16,8 +16,8 @@ class GoogleSheetExporter:
     def authenticate_google_sheets(self):
         """Authenticate with Google Sheets API using service account credentials."""
         scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name(self.credentials_json_path, scope)
-        return gspread.authorize(creds)
+        creds = ServiceAccountCredentials.from_json_keyfile_name(self.credentials_json_path, scope) # type: ignore
+        return gspread.authorize(creds) # type: ignore
 
     def export_dataframe_to_sheet(self, df):
         """

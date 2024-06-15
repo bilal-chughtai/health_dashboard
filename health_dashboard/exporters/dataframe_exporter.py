@@ -27,6 +27,7 @@ column_order = [
     "nutrition_carbs",
     "nutrition_fat",
     "nutrition_protein",
+    # "sleep_duration",
 ]
 
 class DataFrameExporter:
@@ -57,7 +58,7 @@ class DataFrameExporter:
             row = {'date': day}
             for score_type, score_values in scores.items():
                 # Assuming we want the average score if there are multiple entries per day
-                row[score_type] = sum(score_values) / len(score_values)
+                row[score_type] = score_values[0] if len(score_values) == 1 else sum(score_values) / len(score_values)
             formatted_data.append(row)
 
         # create the dataframe

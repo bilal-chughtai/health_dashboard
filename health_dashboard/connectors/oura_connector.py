@@ -17,10 +17,12 @@ class OuraConnector(APIConnector):
         self.client = OuraClient(access_token)
         self.source_name = "oura"
 
-    def get_all_data(self, start_date: str | None = None, end_date: str | None = None) -> list[HealthData]:
+    from typing import Sequence
+    
+    def get_all_data(self, start_date: str | None = None, end_date: str | None = None) -> Sequence[HealthData]:
         """
         Fetch all data from the Oura API and return a list of HealthData objects.
-
+    
         :param start_date: The start date for fetching data in YYYY-MM-DD format. Defaults to yesterday.
         :param end_date: The end date for fetching data in YYYY-MM-DD format. Defaults to today.
         :return: A list of SleepData objects with the sleep data from the Oura API.
@@ -32,7 +34,7 @@ class OuraConnector(APIConnector):
         all_data = sleep_data + readiness_data + activity_data + steps_data
         return all_data
 
-    def get_daily_sleep(self, start_date: str = None, end_date: str = None) -> list[SleepData]:
+    def get_daily_sleep(self, start_date: str | None = None, end_date: str | None = None) -> list[SleepData]:
         """
         Fetch daily sleep data for a specified date range and return a list of SleepData objects.
 
@@ -42,7 +44,8 @@ class OuraConnector(APIConnector):
         """
         # Fetch sleep data from the Oura API
         sleep_data_response = self.client.get_daily_sleep(start_date=start_date, end_date=end_date)
-
+        assert isinstance(sleep_data_response, list)
+        
         # Transform the API response into SleepData objects
         sleep_data_objects = []
         for sleep_entry in sleep_data_response:
@@ -54,7 +57,7 @@ class OuraConnector(APIConnector):
 
         return sleep_data_objects
 
-    def get_daily_readiness(self, start_date: str = None, end_date: str = None) -> list[ReadinessData]:
+    def get_daily_readiness(self, start_date: str | None = None, end_date: str |None = None) -> list[ReadinessData]:
         """
         Fetch daily readiness data for a specified date range and return a list of ReadinessData objects.
 
@@ -64,7 +67,7 @@ class OuraConnector(APIConnector):
         """
         # Fetch readiness data from the Oura API
         readiness_data_response = self.client.get_daily_readiness(start_date=start_date, end_date=end_date)
-
+        assert isinstance(readiness_data_response, list)
         # Transform the API response into ReadinessData objects
         readiness_data_objects = []
         for readiness_entry in readiness_data_response:
@@ -76,7 +79,7 @@ class OuraConnector(APIConnector):
 
         return readiness_data_objects
 
-    def get_daily_activity(self, start_date: str = None, end_date: str = None) -> list[ActivityData]:
+    def get_daily_activity(self, start_date: str | None = None, end_date: str | None = None) -> list[ActivityData]:
         """
         Fetch daily activity data for a specified date range and return a list of ActivityData objects.
 
@@ -86,7 +89,7 @@ class OuraConnector(APIConnector):
         """
         # Fetch activity data from the Oura API
         activity_data_response = self.client.get_daily_activity(start_date=start_date, end_date=end_date)
-
+        assert isinstance(activity_data_response, list)
         # Transform the API response into ActivityData objects
         activity_data_objects = []
         for activity_entry in activity_data_response:
@@ -98,7 +101,7 @@ class OuraConnector(APIConnector):
 
         return activity_data_objects
 
-    def get_steps_data(self, start_date: str = None, end_date: str = None) -> list[StepsData]:
+    def get_steps_data(self, start_date: str | None = None, end_date: str | None = None) -> list[StepsData]:
         """
         Fetch daily steps data for a specified date range and return a list of StepsData objects.
 
@@ -108,14 +111,14 @@ class OuraConnector(APIConnector):
         """
         # Fetch steps data from the Oura API
         activity_response = self.client.get_daily_activity(start_date=start_date, end_date=end_date)
-
+        assert isinstance(activity_response, list)
         # Transform the API response into StepsData objects
         steps_data_objects = []
         for activity_entry in activity_response:
             # Each entry is one day of steps data
             timestamp = datetime.fromisoformat(activity_entry["timestamp"])
-            steps = activity_entry["steps"]
-            steps_data = StepsData(timestamp=timestamp, source=self.source_name, score=steps)
+            steps = activity_entry["steps"] 
+            steps_data = StepsData(timestamp=timestamp, source=self.source_name, score=int(steps))
             steps_data_objects.append(steps_data)
 
         return steps_data_objects

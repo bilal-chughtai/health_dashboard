@@ -10,8 +10,11 @@ from health_dashboard.connectors.gsheet_connector import GSheetConnector
 from health_dashboard.connectors.cronometer_connector import CronometerConnector
 
 def main():
+    
     load_dotenv()
     oura_access_token = os.getenv('OURA_ACCESS_TOKEN')
+    if not oura_access_token:
+        raise ValueError("No OURA_ACCESS_TOKEN provided")
     
     # Initialize connectors
     oura_connector = OuraConnector(oura_access_token)
