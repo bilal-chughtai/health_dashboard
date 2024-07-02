@@ -142,7 +142,7 @@ class CronometerConnector(APIConnector):
             response_csv = response.text
         else:
             print(
-                f"Warning: Failed to fetch data from Cronometer API. Status code: {code}"
+                f"{datetime.now()}: Warning: Failed to fetch data from Cronometer API. Status code: {code}"
             )
             return []
 

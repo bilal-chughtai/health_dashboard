@@ -13,3 +13,10 @@ class HealthData():
 
     def __repr__(self) -> str:
         return f"timestamp: {self.timestamp}, source: {self.source}"
+    
+    @staticmethod
+    def id() -> str:
+        """
+        Return a unique identifier for this HealthData instance. This is used for identifying the data type in export csvs.
+        """
+        raise NotImplementedError

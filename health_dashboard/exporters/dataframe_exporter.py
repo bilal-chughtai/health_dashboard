@@ -1,34 +1,11 @@
+from datetime import datetime
 from health_dashboard.models.health_data import HealthData
 from collections import defaultdict
 import pandas as pd
+from health_dashboard.vars import df_col_order
 
-
-# TODO: move this into the class itself
-CLASS_NAMES_TO_COLUMN_NAMES = {
-    "SleepData": "sleep",
-    "ReadinessData": "readiness",
-    "ActivityData": "activity",
-    "StepsData": "steps",
-    "BodyweightData": "bodyweight",
-    "LiftData": "lift",
-    "NutritionData": "nutrition",
-}
 
 # TODO: figure out a better place for this to live
-column_order = [
-    "date",
-    "bodyweight",
-    "sleep",
-    "readiness",
-    "activity",
-    "steps",
-    "lift",
-    "nutrition_calories",
-    "nutrition_carbs",
-    "nutrition_fat",
-    "nutrition_protein",
-    # "sleep_duration",
-]
 
 class DataFrameExporter:
     def __init__(self):
@@ -41,16 +18,16 @@ class DataFrameExporter:
         # Iterate over the list to populate the dictionary
         for data in data_list:
             day = data.timestamp.date()
-            class_name = data.__class__.__name__
             
             # Dynamically find score attributes and values
             for attr, value in data.__dict__.items():
                 if "timestamp" in attr or attr.startswith("_") or "source" in attr:
+                    # ignore these attributes
                     continue
                 if "score" in attr:
-                    data_dict[day][f"{CLASS_NAMES_TO_COLUMN_NAMES[class_name]}"].append(value)
+                    data_dict[day][f"{data.id()}"].append(value)
                 else:
-                    data_dict[day][f"{CLASS_NAMES_TO_COLUMN_NAMES[class_name]}_{attr}"].append(value)
+                    data_dict[day][f"{data.id()}_{attr}"].append(value)
 
         # Convert the nested dictionary into a DataFrame-friendly format
         formatted_data = []
@@ -64,9 +41,9 @@ class DataFrameExporter:
         # create the dataframe
         df = pd.DataFrame(formatted_data)
         df = df.sort_values(by='date')
-        df = df[column_order]
+        df = df[df_col_order]
         return df
-    
+
     def write_df_to_csv(self, df: pd.DataFrame, filename: str = "data/health_data.csv"):
         df.to_csv(filename, index=False)
-        print(f"Data successfully exported to CSV: '{filename}'.")
+        print(f"{datetime.now()}: Data successfully exported to CSV: '{filename}'.")

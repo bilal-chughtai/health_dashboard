@@ -1,3 +1,7 @@
+import os
+from pprint import pprint
+
+from dotenv import load_dotenv
 from health_dashboard.models.steps_data import StepsData
 from health_dashboard.models.health_data import HealthData
 from health_dashboard.models.sleep_data import SleepData
@@ -8,13 +12,17 @@ from oura_ring import OuraClient
 from health_dashboard.connectors.api_connector import APIConnector
 
 class OuraConnector(APIConnector):
-    def __init__(self, access_token: str):
+    def __init__(self):
         """
         Initialize the OuraConnector with an access token.
 
         :param access_token: The access token for the Oura API.
         """
-        self.client = OuraClient(access_token)
+        load_dotenv()
+        oura_access_token = os.getenv('OURA_ACCESS_TOKEN')
+        if not oura_access_token:
+            raise ValueError("No OURA_ACCESS_TOKEN provided")
+        self.client = OuraClient(oura_access_token)
         self.source_name = "oura"
 
     from typing import Sequence
@@ -42,17 +50,31 @@ class OuraConnector(APIConnector):
         :param end_date: The end date for fetching sleep data in YYYY-MM-DD format. Defaults to today.
         :return: A list of SleepData objects with the sleep data from the Oura API.
         """
-        # Fetch sleep data from the Oura API
+        
+        # Daily Sleep Scores
         sleep_data_response = self.client.get_daily_sleep(start_date=start_date, end_date=end_date)
+        
+        # Sleep Duration Data
+        duration_data_response = self.client.get_sleep_periods(start_date=start_date, end_date=end_date)
+        
         assert isinstance(sleep_data_response, list)
+        assert isinstance(duration_data_response, list)
         
         # Transform the API response into SleepData objects
         sleep_data_objects = []
         for sleep_entry in sleep_data_response:
-            # Each entry is one day of sleep data
+
             timestamp = sleep_entry["timestamp"]
+            day = sleep_entry["day"]
+            durations = [x["total_sleep_duration"] for x in duration_data_response if x["day"] == day]
+
+            if len(durations) == 0:
+                duration = 0
+            else:
+                duration = sum(durations) / 3600 # convert to hours
+
             sleep_score = sleep_entry["score"]
-            sleep_data = SleepData(timestamp=timestamp, source=self.source_name, score=sleep_score)
+            sleep_data = SleepData(timestamp=timestamp, source=self.source_name, score=sleep_score, duration=duration)
             sleep_data_objects.append(sleep_data)
 
         return sleep_data_objects

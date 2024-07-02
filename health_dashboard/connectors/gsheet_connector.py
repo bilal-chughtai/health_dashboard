@@ -27,7 +27,7 @@ class GSheetConnector(APIConnector):
         Note that the start_date and end_date parameters are not used in this method.
         """
         if start_date or end_date:
-            print("Warning: start_date and end_date parameters are not used in GSheetConnector.get_all_data")
+            print(f"{datetime.now()}: Warning: start_date and end_date parameters are not used in GSheetConnector.get_all_data")
             
         sheet = self.client.open(self.sheet_name).worksheet(self.worksheet_name)
         all_records = sheet.get_all_records()

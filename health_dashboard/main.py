@@ -10,14 +10,8 @@ from health_dashboard.connectors.gsheet_connector import GSheetConnector
 from health_dashboard.connectors.cronometer_connector import CronometerConnector
 
 def main():
-    
-    load_dotenv()
-    oura_access_token = os.getenv('OURA_ACCESS_TOKEN')
-    if not oura_access_token:
-        raise ValueError("No OURA_ACCESS_TOKEN provided")
-    
     # Initialize connectors
-    oura_connector = OuraConnector(oura_access_token)
+    oura_connector = OuraConnector()
     gsheet_connector = GSheetConnector()
     cronometer_connector = CronometerConnector()
     connectors = [oura_connector, gsheet_connector, cronometer_connector]
@@ -34,7 +28,7 @@ def main():
     
     # Get data and store it using DataStore
     for connector in connectors:
-        print(f"Getting data from {connector.source_name}...")
+        print(f"{datetime.now()}: Getting data from {connector.source_name}...")
         data = connector.get_all_data(week_ago_str, today_str)  
         for data_entry in data:
             data_store.add_data(data_entry)

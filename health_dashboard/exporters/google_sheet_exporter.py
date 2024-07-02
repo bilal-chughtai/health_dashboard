@@ -1,3 +1,4 @@
+from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from gspread_dataframe import set_with_dataframe
@@ -41,7 +42,7 @@ class GoogleSheetExporter:
         df = self.add_missing_days(df)
         set_with_dataframe(sheet, df, include_index=False)
 
-        print(f"Data successfully exported to Google Sheets: '{self.sheet_name}' in worksheet '{self.worksheet_name}'.")
+        print(f"{datetime.now()}: Data successfully exported to Google Sheets: '{self.sheet_name}' in worksheet '{self.worksheet_name}'.")
     
     def add_missing_days(self, df):
         """Add missing days to the dataframe and fill in the missing values with blank strings.

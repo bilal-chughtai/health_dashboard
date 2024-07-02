@@ -6,5 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Change to that directory
 cd "$SCRIPT_DIR"
 
+# Activate the virtual environment
+source .venv/bin/activate
+
 # Run the script
-poetry run python health_dashboard/main.py
+python health_dashboard/main.py
