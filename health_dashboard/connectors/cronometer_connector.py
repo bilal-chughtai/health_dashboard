@@ -12,6 +12,7 @@ import time
 from health_dashboard.models.health_data import HealthData
 from health_dashboard.models.nutrition_data import NutritionData
 from health_dashboard.connectors.api_connector import APIConnector
+from health_dashboard.utils import get_secrets
 
 
 class CronometerConnector(APIConnector):
@@ -24,12 +25,7 @@ class CronometerConnector(APIConnector):
         """
         self.source_name = "cronometer"
         self.base_url = "https://cronometer.com/cronometer/app"
-        self.secrets = self.get_secrets()
-
-    def get_secrets(self, path: str = ".secrets.json"):
-        with open(path) as f:
-            secrets = json.load(f)
-        return secrets
+        self.secrets = get_secrets(".secrets.json")
 
     def _session_authenticate(self, username: str, password: str):
         """

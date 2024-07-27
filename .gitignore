@@ -165,3 +165,5 @@ google_service_account.json
 health_data_store.json
 health_data.csv
 .secrets.json
+strava_access_token.json
+logs.txt

@@ -3,7 +3,6 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from gspread_dataframe import set_with_dataframe
 import pandas as pd
-from health_dashboard.models.health_data import HealthData
 from collections import defaultdict
 
 
