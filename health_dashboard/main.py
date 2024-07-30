@@ -11,6 +11,15 @@ from health_dashboard.connectors.cronometer_connector import CronometerConnector
 from health_dashboard.connectors.strava_connector import StravaConnector
 
 
+def get_connector_data(connector, start_date, end_date):
+    try:
+        print(f"{datetime.now()}: Getting data from {connector.source_name}...")
+        return connector.get_all_data(start_date, end_date)
+    except Exception as e:
+        print(f"Error getting data from {connector.source_name}: {str(e)}")
+        return []
+
+
 def main():
     # Initialize connectors
     oura_connector = OuraConnector()
@@ -29,15 +38,15 @@ def main():
 
     # get todays date and a week ago
     today = datetime.now().date()
+    tomorrow = today + timedelta(days=1)
     week_ago = today - timedelta(days=7)
 
-    today_str = today.isoformat()
+    tomorrow_str = tomorrow.isoformat()
     week_ago_str = week_ago.isoformat()
 
     # Get data and store it using DataStore
     for connector in connectors:
-        print(f"{datetime.now()}: Getting data from {connector.source_name}...")
-        data = connector.get_all_data(week_ago_str, today_str)
+        data = get_connector_data(connector, week_ago_str, tomorrow_str)
         for data_entry in data:
             data_store.add_data(data_entry)
 

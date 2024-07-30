@@ -25,7 +25,6 @@ class StravaConnector(APIConnector):
         self.client_id = secrets["STRAVA_CLIENT_ID"]
         self.client_secret = secrets["STRAVA_CLIENT_SECRET"]
         self.token_file_path = "strava_access_token.json"
-        self.client = self._get_client()
 
     def _get_client(self) -> Client:
         client = Client()
@@ -74,6 +73,7 @@ class StravaConnector(APIConnector):
     def get_all_data(
         self, start_date: str | None = None, end_date: str | None = None
     ) -> Sequence[HealthData]:
+        self.client = self._get_client()
         activities = self.client.get_activities(after=start_date, before=end_date)
         run_data = self.get_run_data(activities)
         return run_data

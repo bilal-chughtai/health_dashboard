@@ -10,4 +10,4 @@ cd "$SCRIPT_DIR"
 source .venv/bin/activate
 
 # Run the script
-python health_dashboard/main.py
+python health_dashboard/main.py >> log.txt 2>&1
