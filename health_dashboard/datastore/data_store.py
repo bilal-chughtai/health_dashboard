@@ -1,4 +1,5 @@
 import json
+import os
 from health_dashboard.models.health_data import HealthData
 from health_dashboard.vars import type_map
 
@@ -15,6 +16,8 @@ class DataStore:
                 return {k: self._deserialize(v) for k, v in data.items()}
         except (FileNotFoundError, json.JSONDecodeError):
             print("No data store found. Creating data store")
+            if not os.path.exists('data'):
+                os.makedirs('data')
             self.save_data({})
             return {}
 

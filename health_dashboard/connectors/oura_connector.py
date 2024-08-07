@@ -10,6 +10,7 @@ from health_dashboard.models.activity_data import ActivityData
 from datetime import datetime
 from oura_ring import OuraClient
 from health_dashboard.connectors.api_connector import APIConnector
+from health_dashboard.utils import get_secrets
 
 class OuraConnector(APIConnector):
     def __init__(self):
@@ -18,11 +19,8 @@ class OuraConnector(APIConnector):
 
         :param access_token: The access token for the Oura API.
         """
-        load_dotenv()
-        oura_access_token = os.getenv('OURA_ACCESS_TOKEN')
-        if not oura_access_token:
-            raise ValueError("No OURA_ACCESS_TOKEN provided")
-        self.client = OuraClient(oura_access_token)
+        secrets = get_secrets(".secrets.json")
+        self.client = OuraClient(secrets["OURA_ACCESS_TOKEN"])
         self.source_name = "oura"
 
     from typing import Sequence

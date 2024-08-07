@@ -5,9 +5,11 @@ from typing import Sequence, Type
 import requests
 from datetime import datetime, timedelta
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver import FirefoxOptions
 from selenium.webdriver.common.by import By
+
 import time
 from health_dashboard.models.health_data import HealthData
 from health_dashboard.models.nutrition_data import NutritionData
@@ -32,18 +34,19 @@ class CronometerConnector(APIConnector):
         Authenticate the session using Selenium and obtain the sesnonce cookie.
         """
         # Replace 'path/to/chromedriver' with the actual path to your ChromeDriver
-        chrome_driver_path = "/opt/homebrew/Caskroom/chromedriver/126.0.6478.61/chromedriver-mac-arm64/chromedriver"
 
         # URL to open
         url = "https://cronometer.com/login/"
+        
+        # Use Firefox Driver (Chrome was buggy on servers)
+        options = FirefoxOptions()
+        options.add_argument("--headless")
 
-        # Set up Chrome options to use the existing user profile
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")  # type: ignore
+        driver = webdriver.Firefox(service=FirefoxService(GeckoDriverManager().install()), options=options)
 
-        # Initialize the WebDriver
-        service = Service(chrome_driver_path)
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+
+        # Now you can use the driver to navigate to the URL
+        driver.get(url)
 
         try:
             driver.get(url)
