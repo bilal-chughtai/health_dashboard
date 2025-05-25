@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from typing import List
-from backend.models import DailyData
+from dashboard.models import DailyData
 from .registry import registry
 from .files import DEFAULT_CSV_PATH
 

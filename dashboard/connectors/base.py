@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import TypeVar, Generic, List
-from backend.models import BaseData
+from dashboard.models import BaseData
 
 T = TypeVar('T', bound=BaseData)
 

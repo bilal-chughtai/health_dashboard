@@ -1,14 +1,17 @@
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
-import os
 import math
-from backend.models import (
+from dashboard.models import (
     OuraData, CronometerData, StravaData, GarminData, GSheetData,
     MetricCategory
 )
-from backend.files import download_and_decrypt_csv
+from dashboard.files import download_and_decrypt_csv
 from typing import Optional
 from pathlib import Path
 

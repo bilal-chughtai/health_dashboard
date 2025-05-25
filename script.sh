@@ -13,7 +13,7 @@ source .venv/bin/activate
 echo "Current datetime: $(date)" >> log.txt
 
 # Run the script
-python backend/main.py --online >> log.txt 2>&1
+python -m dashboard.main --online >> log.txt 2>&1
 
 # Print a new line
 echo "" >> log.txt

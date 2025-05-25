@@ -1,6 +1,6 @@
 from typing import Type, TypeVar, Generic, Iterator
-from backend.connectors.base import Connector
-from backend.models import BaseData
+from dashboard.connectors.base import Connector
+from dashboard.models import BaseData
 
 T = TypeVar('T', bound=BaseData)
 

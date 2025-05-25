@@ -4,9 +4,9 @@ import logging
 from oura_ring import OuraClient
 import requests
 
-from backend.models import OuraData
-from backend.files import get_secrets
-from backend.connectors.base import Connector
+from dashboard.models import OuraData
+from dashboard.secret import get_all_secrets
+from dashboard.connectors.base import Connector
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,9 @@ class OuraConnector(Connector[OuraData]):
     """Connector for Oura Ring data"""
     def __init__(self):
         """Initialize the OuraConnector with an access token."""
-        secrets = get_secrets(".secrets.json")
-        self.client = OuraClient(secrets["OURA_ACCESS_TOKEN"])
+        secrets = get_all_secrets()
+        self.access_token = secrets.OURA_ACCESS_TOKEN.get_secret_value()
+        self.client = OuraClient(self.access_token)
 
     @property
     def source_name(self) -> str:

@@ -5,8 +5,7 @@ description = "Collate health data from various services into one place."
 authors = ["Bilal Chughtai <brchughtaii@gmail.com>"]
 readme = "README.md"
 packages = [
-    { include = "backend" },
-    { include = "frontend" }
+    { include = "dashboard" },
 ]
 
 [tool.poetry.dependencies]
@@ -14,7 +13,6 @@ python = ">=3.10,<4.0"
 oura-ring = "^0.3.0"
 python-dotenv = "^1.0.1"
 ipykernel = "^6.29.2"
-pandas = "^2.2.0"
 gspread = "^6.0.1"
 gspread-dataframe = "^3.3.1"
 oauth2client = "^4.1.3"
@@ -26,6 +24,11 @@ garminconnect = "^0.2.26"
 streamlit = "^1.45.1"
 boto3 = "^1.38.23"
 cryptography = "^45.0.3"
+pydantic = "^2.6.3"
+pydantic-settings = "^2.9.1"
+numpy = "1.26.4"
+pandas = "2.2.0"
+
 
 
 [build-system]

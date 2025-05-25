@@ -7,23 +7,19 @@ from datetime import datetime
 from cryptography.fernet import Fernet
 import base64
 
+from dashboard.secret import get_shared_secrets
+
 """Utility functions and constants for the health dashboard."""
 
 # Default file paths
 DEFAULT_JSON_PATH = "data/health_data.json"
 DEFAULT_CSV_PATH = "data/health_data.csv"
 
-def get_secrets(path: str = ".secrets.json"):
-    """Get secrets from the specified JSON file."""
-    with open(path) as f:
-        secrets = json.load(f)
-    return secrets
-
 def get_encryption_key() -> bytes:
     """Get the encryption key from secrets and convert it to a Fernet key."""
-    secrets = get_secrets()
+    secrets = get_shared_secrets()
     # Pad or truncate the key to 32 bytes and encode as base64
-    key = secrets['ENCRYPTION_KEY'].encode()
+    key = secrets.ENCRYPTION_KEY.get_secret_value().encode()
     key = key.ljust(32, b'=')[:32]  # Pad with = or truncate to 32 bytes
     return base64.urlsafe_b64encode(key)
 
@@ -40,11 +36,11 @@ def decrypt_data(encrypted_data: bytes) -> bytes:
 # AWS S3 Operations
 def get_s3_client():
     """Get an S3 client using credentials from secrets."""
-    secrets = get_secrets()
+    secrets = get_shared_secrets()
     return boto3.client(
         's3',
-        aws_access_key_id=secrets['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=secrets['AWS_SECRET_ACCESS_KEY']
+        aws_access_key_id=secrets.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=secrets.AWS_SECRET_ACCESS_KEY.get_secret_value()
     )
 
 def handle_file_aws(
@@ -75,8 +71,8 @@ def handle_file_aws(
     
     try:
         s3_client = get_s3_client()
-        secrets = get_secrets()
-        bucket = secrets['AWS_S3_BUCKET_NAME']
+        secrets = get_shared_secrets()
+        bucket = secrets.AWS_S3_BUCKET_NAME
         
         if operation == "upload":
             # Check if local file exists
@@ -95,8 +91,8 @@ def handle_file_aws(
                 Body=encrypted_data
             )
             return True
-            
-        else:  # download
+        
+        elif operation == "download":
             try:
                 # Get encrypted data from S3
                 response = s3_client.get_object(
@@ -109,18 +105,16 @@ def handle_file_aws(
                 decrypted_data = decrypt_data(encrypted_data)
                 with open(local_path, 'wb') as f:
                     f.write(decrypted_data)
-                
                 return True
-                
             except ClientError as e:
                 if e.response['Error']['Code'] == 'NoSuchKey':
                     # File doesn't exist in S3
                     return False
                 # Re-raise other AWS errors
                 raise
-                
+        
     except Exception as e:
-        # Re-raise any errors
+        # Re-raise any other errors
         raise
 
 # Convenience functions that use the unified handler

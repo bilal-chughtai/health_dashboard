@@ -4,9 +4,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 import json
 
-from backend.models import GSheetData
-from backend.files import get_secrets
-from backend.connectors.base import Connector
+from dashboard.models import GSheetData
+from dashboard.secret import get_all_secrets
+from dashboard.connectors.base import Connector
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +14,19 @@ class GSheetConnector(Connector[GSheetData]):
     """Connector for Google Sheets data tracking lifts and bodyweight"""
     def __init__(self):
         """Initialize the GSheetConnector with credentials."""
-        secrets = get_secrets(".secrets.json")
-        self.service_account_info = secrets["GOOGLE_SERVICE_ACCOUNT"]
-        self.sheet_name = secrets["GSHEET_SHEET_NAME"]
-        self.worksheet_name = secrets["GSHEET_WORKSHEET_NAME"]
+        secrets = get_all_secrets()
+        self.service_account = secrets.GOOGLE_SERVICE_ACCOUNT
+        self.sheet_name = secrets.GSHEET_SHEET_NAME
+        self.worksheet_name = secrets.GSHEET_WORKSHEET_NAME
         self.client = self.authenticate_google_sheets()
 
     def authenticate_google_sheets(self):
         """Authenticate with Google Sheets API using service account credentials from secrets."""
         scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(self.service_account_info, scope)  # type: ignore
+        # Convert service account to dict and ensure private_key is a plain string
+        service_account_dict = self.service_account.model_dump()
+        service_account_dict["private_key"] = self.service_account.private_key.get_secret_value()
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_dict, scope)  # type: ignore
         return gspread.authorize(creds)  # type: ignore
 
     @property

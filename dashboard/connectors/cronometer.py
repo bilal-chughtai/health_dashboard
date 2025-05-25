@@ -9,16 +9,18 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.firefox import GeckoDriverManager
 import time
 
-from backend.models import CronometerData
-from backend.files import get_secrets
-from backend.connectors.base import Connector
+from dashboard.models import CronometerData
+from dashboard.secret import get_all_secrets
+from dashboard.connectors.base import Connector
 
 class CronometerConnector(Connector[CronometerData]):
     """Connector for Cronometer data"""
     def __init__(self):
         """Initialize the CronometerConnector with credentials."""
         self.base_url = "https://cronometer.com/cronometer/app"
-        self.secrets = get_secrets(".secrets.json")
+        secrets = get_all_secrets()
+        self.username = secrets.CRONOMETER_USERNAME
+        self.password = secrets.CRONOMETER_PASSWORD.get_secret_value()
         self.sesnonce = None
         self.fetchnonce = None
 
@@ -40,10 +42,10 @@ class CronometerConnector(Connector[CronometerData]):
             time.sleep(2)
 
             username_field = driver.find_element(By.ID, "username")
-            username_field.send_keys(self.secrets["CRONOMETER_USERNAME"])
+            username_field.send_keys(self.username)
 
             password_field = driver.find_element(By.ID, "password")
-            password_field.send_keys(self.secrets["CRONOMETER_PASSWORD"])
+            password_field.send_keys(self.password)
 
             driver.find_element(By.ID, "login-button").click()
             time.sleep(2)

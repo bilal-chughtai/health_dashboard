@@ -1,5 +1,5 @@
-from backend.registry import registry
-from backend.models import OuraData, CronometerData, StravaData, GarminData, GSheetData
+from dashboard.registry import registry
+from dashboard.models import OuraData, CronometerData, StravaData, GarminData, GSheetData
 from .oura import OuraConnector
 from .cronometer import CronometerConnector
 from .strava import StravaConnector

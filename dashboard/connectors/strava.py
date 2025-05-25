@@ -9,17 +9,17 @@ from stravalib.client import BatchedResultsIterator
 from stravalib.protocol import AccessInfo
 from stravalib.exc import RateLimitExceeded
 
-from backend.models import StravaData
-from backend.files import get_secrets
-from backend.connectors.base import Connector
+from dashboard.models import StravaData
+from dashboard.secret import get_all_secrets
+from dashboard.connectors.base import Connector
 
 class StravaConnector(Connector[StravaData]):
     """Connector for Strava data"""
     def __init__(self):
         """Initialize the StravaConnector with API credentials."""
-        secrets = get_secrets(".secrets.json")
-        self.client_id = secrets["STRAVA_CLIENT_ID"]
-        self.client_secret = secrets["STRAVA_CLIENT_SECRET"]
+        secrets = get_all_secrets()
+        self.client_id = int(secrets.STRAVA_CLIENT_ID)
+        self.client_secret = secrets.STRAVA_CLIENT_SECRET.get_secret_value()
         self.token_file_path = "strava_access_token.json"
         self.client = None
 

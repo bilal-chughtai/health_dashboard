@@ -10,9 +10,9 @@ from garminconnect import (
     GarminConnectTooManyRequestsError,
 )
 
-from backend.models import GarminData
-from backend.files import get_secrets
-from backend.connectors.base import Connector
+from dashboard.models import GarminData
+from dashboard.secret import get_all_secrets
+from dashboard.connectors.base import Connector
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +28,9 @@ class GarminConnector(Connector[GarminData]):
     """Connector for Garmin Connect data"""
     def __init__(self):
         """Initialize the GarminConnector with API credentials."""
-        secrets = get_secrets(".secrets.json")
-        self.email = secrets["GARMIN_EMAIL"]
-        self.password = secrets["GARMIN_PASSWORD"]
+        secrets = get_all_secrets()
+        self.email = secrets.GARMIN_EMAIL
+        self.password = secrets.GARMIN_PASSWORD.get_secret_value()
         self.client = None
 
     @property

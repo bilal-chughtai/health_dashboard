@@ -3,12 +3,12 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import cast, List, Optional
 
-from backend.models import AppData, DailyData
-from backend.connectors import get_connectors
-from backend.registry import registry
-from backend.data_store import load_data, save_data, update_data
-from backend.exporter import DataFrameExporter
-from backend.files import download_and_decrypt_json, encrypt_and_upload_json, encrypt_and_upload_csv
+from dashboard.models import AppData, DailyData
+from dashboard.connectors import get_connectors
+from dashboard.registry import registry
+from dashboard.data_store import load_data, save_data, update_data
+from dashboard.exporter import DataFrameExporter
+from dashboard.files import download_and_decrypt_json, encrypt_and_upload_json, encrypt_and_upload_csv
 
 def assemble_app_data_into_daily_data(app_data: list[AppData]) -> list[DailyData]:
     """Assemble app data into DailyData objects, grouped by date."""
