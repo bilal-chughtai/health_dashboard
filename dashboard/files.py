@@ -69,6 +69,9 @@ def handle_file_aws(
     
     local_path = local_path or default_path
     
+    # Ensure data directory exists
+    Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+    
     try:
         s3_client = get_s3_client()
         secrets = get_shared_secrets()
