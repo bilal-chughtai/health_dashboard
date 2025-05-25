@@ -9,5 +9,11 @@ cd "$SCRIPT_DIR"
 # Activate the virtual environment
 source .venv/bin/activate
 
+# Print current date and time
+echo "Current datetime: $(date)" >> log.txt
+
 # Run the script
-python health_dashboard/main.py >> log.txt 2>&1
+python backend/main.py --online >> log.txt 2>&1
+
+# Print a new line
+echo "" >> log.txt
