@@ -70,21 +70,28 @@ class GarminConnector(Connector[GarminData]):
 
         # Get steps data for each day in the range
         steps_data: dict[str, int | None] = {}
-        try:
-            steps_response = self.client.get_daily_steps(
-                start_date.strftime("%Y-%m-%d"),
-                end_date.strftime("%Y-%m-%d")
-            )
-            # The response is a list of daily step entries
-            if isinstance(steps_response, list):
-                for entry in steps_response:
-                    if isinstance(entry, dict):
-                        calendar_date = entry.get("calendarDate")
-                        steps = entry.get("steps")
-                        if isinstance(calendar_date, str) and isinstance(steps, (int, type(None))):
-                            steps_data[calendar_date] = steps
-        except Exception as e:
-            logger.warning(f"Failed to get steps data: {e}")
+        current_date = start_date
+        while current_date <= end_date:
+            date_str = current_date.strftime("%Y-%m-%d")
+            try:
+                steps_response = cast(list[dict[str, Any]], self.client.get_daily_steps(
+                    date_str,
+                    date_str
+                ))
+                # The response is a list of daily step entries
+                if steps_response and len(steps_response) > 0:
+                    entry = steps_response[0]
+                    steps = entry.get("totalSteps")
+                    if isinstance(steps, (int, type(None))):
+                        steps_data[date_str] = steps
+                    else:
+                        steps_data[date_str] = None
+                else:
+                    steps_data[date_str] = None
+            except Exception as e:
+                logger.warning(f"Failed to get steps data for {date_str}: {e}")
+                steps_data[date_str] = None
+            current_date += timedelta(days=1)
 
         # Get RHR and HRV data for each day
         rhr_data: dict[str, int | None] = {}

@@ -83,6 +83,32 @@ st.markdown("""
         font-weight: 500;
     }
     </style>
+    <script>
+        // Function to check if device is mobile
+        function isMobile() {
+            return window.innerWidth <= 768;
+        }
+        
+        // Function to set sidebar state
+        function setSidebarState() {
+            const sidebar = document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                if (isMobile()) {
+                    sidebar.classList.add('collapsed');
+                    sidebar.setAttribute('aria-expanded', 'false');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    sidebar.setAttribute('aria-expanded', 'true');
+                }
+            }
+        }
+        
+        // Set initial state
+        window.addEventListener('load', setSidebarState);
+        
+        // Update on resize
+        window.addEventListener('resize', setSidebarState);
+    </script>
 """, unsafe_allow_html=True)
 
 # Cache the last download time
@@ -131,6 +157,8 @@ if 'time_range' not in st.session_state:
     st.session_state.time_range = "Past Month"
 if 'last_download_check' not in st.session_state:
     st.session_state.last_download_check = None
+if 'show_daily_traces' not in st.session_state:
+    st.session_state.show_daily_traces = False
 
 # Check if we need to download fresh data (only once every 4 hours)
 current_time = datetime.now()
@@ -210,6 +238,14 @@ with st.sidebar:
         label_visibility="collapsed",
         key="time_radio",
         on_change=on_time_range_change
+    )
+
+    # Add trace visibility toggle
+    st.markdown("<h2 style='color: #2c3e50; margin-bottom: 0.5rem;'>Display Options</h2>", unsafe_allow_html=True)
+    st.toggle(
+        "Show Daily Traces",
+        value=st.session_state.show_daily_traces,
+        key="show_daily_traces"
     )
 
 # Calculate date range
@@ -431,10 +467,15 @@ for row in range(num_rows):
                         y_min = rolling_min - (rolling_range * 0.1)
                         y_max = rolling_max + (rolling_range * 0.1)
 
+                        # Only include daily trace if show_daily_traces is True
+                        y_columns = [f'{column}_rolling']
+                        if st.session_state.show_daily_traces:
+                            y_columns.insert(0, column)
+
                         fig = px.line(
                             plot_df,
                             x='date',
-                            y=[column, f'{column}_rolling'],
+                            y=y_columns,
                             title=None,
                             labels={
                                 'date': 'Date',
@@ -459,16 +500,20 @@ for row in range(num_rows):
                             ),
                             hovertemplate='%{customdata[0]}<extra></extra>',
                             selector=dict(name=f'{column}_rolling')
-                        ).update_traces(
-                            line=dict(
-                                color=category_color,
-                                width=1
-                            ),
-                            opacity=0.3,
-                            hoverinfo='none',
-                            hovertemplate=None,
-                            selector=dict(name=column)
                         )
+
+                        # Only update daily trace if it's being shown
+                        if st.session_state.show_daily_traces:
+                            fig.update_traces(
+                                line=dict(
+                                    color=category_color,
+                                    width=1
+                                ),
+                                opacity=0.3,
+                                hoverinfo='none',
+                                hovertemplate=None,
+                                selector=dict(name=column)
+                            )
                     
                     # Display the plot with a subtle border
                     st.plotly_chart(
