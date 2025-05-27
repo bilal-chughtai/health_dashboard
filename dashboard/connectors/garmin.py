@@ -76,7 +76,7 @@ class GarminConnector(Connector[GarminData]):
             try:
                 steps_response = cast(list[dict[str, Any]], self.client.get_daily_steps(
                     date_str,
-                    date_str
+                    date_str,
                 ))
                 # The response is a list of daily step entries
                 if steps_response and len(steps_response) > 0:

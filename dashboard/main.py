@@ -61,8 +61,7 @@ def main():
     print(f"Loaded {len(old_data)} old DailyData entries.")
 
     # (2) Fetch new data (for the past_days days)
-    # Ignore today's data, because it's not complete yet
-    end_date = datetime.now() - timedelta(days=1)
+    end_date = datetime.now()
     start_date = end_date - timedelta(days=args.past_days)
     only_connectors = args.apps.split(",") if args.apps else None
     new_data: list[DailyData] = get_daily_data(start_date, end_date, only_connectors)

@@ -8,11 +8,11 @@ from .gsheet import GSheetConnector
 
 # Register all connectors
 registry.register(OuraConnector(), OuraData)
+registry.register(GarminConnector(), GarminData)
+registry.register(GSheetConnector(), GSheetData)
 registry.register(CronometerConnector(), CronometerData)
 # don't use strava for now, as data is available in garmin too
 # registry.register(StravaConnector(), StravaData)
-registry.register(GarminConnector(), GarminData)
-registry.register(GSheetConnector(), GSheetData)
 
 def get_connectors():
     """Get all registered connectors."""

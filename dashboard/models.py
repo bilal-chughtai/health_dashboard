@@ -15,6 +15,7 @@ class MetricMetadata(BaseModel):
     description: str = Field(description="Detailed description of the metric")
     unit: str | None = Field(None, description="Unit of measurement if applicable")
     sum_weekly: bool = Field(False, description="Whether to sum this metric over weeks instead of averaging")
+    display_delay: int = Field(1, description="Days to wait before displaying (0=same day, 1=next day, etc.)")
 
 class BaseData(BaseModel):
     """Base model for all data"""
@@ -49,56 +50,64 @@ class OuraData(BaseData):
             category=MetricCategory.RECOVERY,
             description="Overall sleep quality score from Oura Ring",
             unit="score",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "sleep_duration_hours": MetricMetadata(
             pretty_name="Sleep Duration",
             category=MetricCategory.RECOVERY,
             description="Total time spent sleeping",
             unit="hours",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "readiness_score": MetricMetadata(
             pretty_name="Readiness Score",
             category=MetricCategory.RECOVERY,
             description="Overall readiness score from Oura Ring",
             unit="score",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "activity_score": MetricMetadata(
             pretty_name="Activity Score",
             category=MetricCategory.ACTIVITY,
             description="Overall activity score from Oura Ring",
             unit="score",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "steps": MetricMetadata(
             pretty_name="Steps",
             category=MetricCategory.ACTIVITY,
             description="Total daily steps",
             unit="steps",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "sleep_heart_rate": MetricMetadata(
-            pretty_name="Sleep Heart Rate",
+            pretty_name="Sleep Avg HR",
             category=MetricCategory.RECOVERY,
             description="Average heart rate during sleep",
             unit="bpm",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "sleep_lowest_heart_rate": MetricMetadata(
-            pretty_name="Sleep Lowest Heart Rate",
+            pretty_name="Sleep Lowest HR",
             category=MetricCategory.RECOVERY,
             description="Lowest heart rate recorded during sleep",
             unit="bpm",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "sleep_hrv": MetricMetadata(
-            pretty_name="Sleep HRV",
+            pretty_name="Sleep Avg HRV",
             category=MetricCategory.RECOVERY,
             description="Average heart rate variability during sleep",
             unit="ms",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         )
     }
 
@@ -115,28 +124,32 @@ class CronometerData(BaseData):
             category=MetricCategory.NUTRITION,
             description="Total daily caloric intake",
             unit="kcal",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "protein": MetricMetadata(
             pretty_name="Protein",
             category=MetricCategory.NUTRITION,
             description="Total protein intake",
             unit="g",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "carbs": MetricMetadata(
             pretty_name="Carbs",
             category=MetricCategory.NUTRITION,
             description="Total carbohydrate intake",
             unit="g",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "fat": MetricMetadata(
             pretty_name="Fat",
             category=MetricCategory.NUTRITION,
             description="Total fat intake",
             unit="g",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         )
     }
 
@@ -151,14 +164,16 @@ class StravaData(BaseData):
             category=MetricCategory.ACTIVITY,
             description="Total running distance",
             unit="km",
-            sum_weekly=True
+            sum_weekly=True,
+            display_delay=1
         ),
         "total_duration_hours": MetricMetadata(
             pretty_name="Running Duration",
             category=MetricCategory.ACTIVITY,
             description="Total running time",
             unit="hours",
-            sum_weekly=True
+            sum_weekly=True,
+            display_delay=1
         )
     }
 
@@ -177,42 +192,48 @@ class GarminData(BaseData):
             category=MetricCategory.ACTIVITY,
             description="Total activity distance from Garmin",
             unit="km",
-            sum_weekly=True
+            sum_weekly=True,
+            display_delay=1
         ),
         "total_duration_hours": MetricMetadata(
             pretty_name="Running Duration",
             category=MetricCategory.ACTIVITY,
             description="Total activity duration from Garmin",
             unit="hours",
-            sum_weekly=True
+            sum_weekly=True,
+            display_delay=1
         ),
         "steps": MetricMetadata(
             pretty_name="Steps",
             category=MetricCategory.ACTIVITY,
             description="Total daily steps from Garmin",
             unit="steps",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "resting_heart_rate": MetricMetadata(
-            pretty_name="Resting Heart Rate",
+            pretty_name="Resting HR",
             category=MetricCategory.RECOVERY,
             description="Resting heart rate measured by Garmin",
             unit="bpm",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         ),
         "hrv": MetricMetadata(
-            pretty_name="Heart Rate Variability",
+            pretty_name="Sleep Avg HRV",
             category=MetricCategory.RECOVERY,
             description="Heart rate variability measured by Garmin",
             unit="ms",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "vo2_max": MetricMetadata(
             pretty_name="VO2 Max",
-            category=MetricCategory.RECOVERY,
+            category=MetricCategory.ACTIVITY,
             description="Maximum oxygen consumption measured by Garmin",
             unit="ml/kg/min",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=1
         )
     }
 
@@ -227,14 +248,16 @@ class GSheetData(BaseData):
             category=MetricCategory.NUTRITION,
             description="Daily bodyweight measurement",
             unit="kg",
-            sum_weekly=False
+            sum_weekly=False,
+            display_delay=0
         ),
         "lift": MetricMetadata(
             pretty_name="Lift",
             category=MetricCategory.ACTIVITY,
             description="Whether a lift was done on this day",
             unit=None,
-            sum_weekly=True
+            sum_weekly=True,
+            display_delay=1
         )
     }
 
