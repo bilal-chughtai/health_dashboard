@@ -139,7 +139,9 @@ def initialize_session_state():
         'time_range': "Past Month",
         'last_download_check': None,
         'show_daily_traces': False,
-        'use_single_column': False
+        'use_single_column': False,
+        'refresh_flag': False,
+        'refresh_toggle': False
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -152,6 +154,8 @@ def get_data_from_aws() -> Optional[pd.DataFrame]:
     Returns None if data is not available.
     """
     try:
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{current_time}] Downloading health data from AWS S3...")
         with st.spinner("Downloading data..."):
             s3_client = get_s3_client()
             secrets = get_shared_secrets()
@@ -241,6 +245,16 @@ def on_source_change():
 def on_time_range_change():
     st.session_state.time_range = st.session_state.time_radio
 
+def on_refresh():
+    st.cache_data.clear()
+    st.session_state.refresh_flag = True
+
+def on_refresh_toggle():
+    """Callback for refresh toggle."""
+    if st.session_state.refresh_toggle:
+        on_refresh()
+        st.session_state.refresh_toggle = False
+
 def setup_page():
     """Set up the Streamlit page configuration and custom styling."""
     st.set_page_config(
@@ -308,7 +322,16 @@ def create_sidebar_filters(df: pd.DataFrame):
             value=st.session_state.use_single_column,
             key="use_single_column"
         )
-    
+        
+
+        # Create refresh toggle with callback
+        st.toggle(
+            "Refresh Data",
+            value=st.session_state.refresh_toggle,
+            key="refresh_toggle",
+            on_change=on_refresh_toggle
+        )
+
     return selected_types, selected_sources, selected_time_range
 
 def filter_data_by_date_range(df: pd.DataFrame, time_range: str) -> pd.DataFrame:
@@ -515,6 +538,11 @@ def main():
     """Main dashboard function."""
     setup_page()
     initialize_session_state()
+    
+    # Check if a refresh was requested (and reset the flag)
+    if st.session_state.refresh_flag:
+        st.session_state.refresh_flag = False
+        st.rerun()
     
     # Get data from AWS
     df = get_data_from_aws()
