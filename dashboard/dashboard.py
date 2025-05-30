@@ -389,6 +389,14 @@ def create_plot(plot_df: pd.DataFrame, column: str, source: str, pretty_name: st
         today = pd.Timestamp.now().normalize()
         plot_df = plot_df[plot_df['date'].dt.date < today.date()]
     
+    # Find the last non-None entry for this metric
+    last_valid_date = plot_df[plot_df[column].notna()]['date'].max()
+    if pd.isna(last_valid_date):
+        return  # Skip plotting if no valid data
+    
+    # Filter data up to the last valid entry
+    plot_df = plot_df[plot_df['date'] <= last_valid_date].copy()
+    
     with st.container(border=True):
         st.markdown(
             f"<h2 style='color: #2c3e50; font-size: 1.1rem; margin-bottom: 0.5rem;'>{pretty_name} "
