@@ -717,6 +717,7 @@ def create_manual_data_entry(df: pd.DataFrame):
                 # Clear all caches and trigger refresh
                 st.cache_data.clear()
                 st.session_state.refresh_flag = True
+                st.rerun()
                 
             except Exception as e:
                 st.error(f"Error saving data: {e}")

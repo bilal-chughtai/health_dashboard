@@ -87,8 +87,16 @@ class ManualConnector(Connector[ManualData]):
             logger.error(f"Error deleting temp files: {e}")
 
     def process_temp_files(self, temp_files: List[Dict[str, Any]], start_date: datetime, end_date: datetime) -> Tuple[List[ManualData], List[str]]:
-        """Process temp files into ManualData objects and collect keys for deletion."""
-        manual_data_list = []
+        """Process temp files into ManualData objects and collect keys for deletion.
+        
+        Files are processed in reverse chronological order (newest first) to ensure
+        we use the most recent value for each field.
+        """
+        # Sort files by timestamp in reverse order (newest first)
+        temp_files.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # Track the most recent value for each field for each date
+        latest_data_by_date: Dict[datetime, Dict[str, Any]] = {}
         keys_to_delete = []
         
         for temp_file in temp_files:
@@ -101,19 +109,39 @@ class ManualConnector(Connector[ManualData]):
                 
                 # Only process files within date range
                 if start_date <= data_date <= end_date:
-                    # Create ManualData object
-                    manual_data = ManualData(
-                        source=self.source_name,
-                        date=data_date,
-                        bodyweight_kg=data.get('manual__bodyweight_kg'),
-                        lift=data.get('manual__lift')
-                    )
-                    manual_data_list.append(manual_data)
-                    keys_to_delete.append(key)
+                    # Initialize date entry if not exists
+                    if data_date not in latest_data_by_date:
+                        latest_data_by_date[data_date] = {
+                            'bodyweight_kg': None,
+                            'lift': False,  # Default to False
+                            'keys': []  # Track keys for this date
+                        }
+                    
+                    # Update fields only if they're not None in the new data
+                    if data.get('manual__bodyweight_kg') is not None:
+                        latest_data_by_date[data_date]['bodyweight_kg'] = data['manual__bodyweight_kg']
+                    if data.get('manual__lift') is not None:
+                        latest_data_by_date[data_date]['lift'] = data['manual__lift']
+                    
+                    # Add key to the list for this date
+                    latest_data_by_date[data_date]['keys'].append(key)
                     
             except Exception as e:
                 logger.warning(f"Error processing temp file data: {e}")
                 continue
+        
+        # Create ManualData objects from the latest data
+        manual_data_list = []
+        for date, latest_data in latest_data_by_date.items():
+            manual_data = ManualData(
+                source=self.source_name,
+                date=date,
+                bodyweight_kg=latest_data['bodyweight_kg'],
+                lift=latest_data['lift']
+            )
+            manual_data_list.append(manual_data)
+            # Add all keys for this date to the delete list
+            keys_to_delete.extend(latest_data['keys'])
         
         return manual_data_list, keys_to_delete
 
