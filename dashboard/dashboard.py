@@ -14,17 +14,18 @@ from typing import Optional, List, Tuple, Dict, Any
 import io
 from botocore.exceptions import ClientError
 from dashboard.models import (
-    OuraData, CronometerData, StravaData, GarminData, GSheetData,
+    OuraData, CronometerData, StravaData, GarminData, ManualData,
     MetricCategory
 )
-from dashboard.files import get_s3_client, decrypt_data
+from dashboard.files import get_s3_client, decrypt_data, encrypt_data
 from dashboard.secret import get_shared_secrets
+import json
 
 # Constants and Configuration
-ALL_MODELS = [OuraData, GarminData, GSheetData, CronometerData, StravaData]
+ALL_MODELS = [OuraData, GarminData, ManualData, CronometerData, StravaData]
 
 # Define custom source order for display
-SOURCE_ORDER = ["Oura", "Garmin", "Gsheet", "Cronometer", "Strava"]
+SOURCE_ORDER = ["Oura", "Garmin", "Manual", "Cronometer", "Strava"]
 
 CATEGORY_COLORS = {
     MetricCategory.RECOVERY: '#3498db',  # Blue
@@ -45,6 +46,38 @@ CACHE_TTL = timedelta(minutes=30)  # Cache data for 30 minutes
 # Custom CSS and JavaScript
 CUSTOM_CSS = """
 <style>
+/* Streamlit theme customization */
+:root {
+    --primary-color: #9b59b6;  /* Purple */
+    --primary-color-hover: #8e44ad;  /* Darker purple for hover */
+    --secondary-background-color: #f8f9fa;
+    --text-color: #2c3e50;
+}
+
+/* Override Streamlit's default primary color */
+.stButton button {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+.stButton button:hover {
+    background-color: var(--primary-color-hover) !important;
+    border-color: var(--primary-color-hover) !important;
+}
+
+/* Style other Streamlit elements that use primary color */
+.stRadio > div > div > label {
+    color: var(--primary-color) !important;
+}
+.stRadio > div > div[data-baseweb="radio"] > div {
+    border-color: var(--primary-color) !important;
+}
+.stRadio > div > div[data-baseweb="radio"] > div[aria-checked="true"] {
+    background-color: var(--primary-color) !important;
+}
+.stToggle > div > div {
+    background-color: var(--primary-color) !important;
+}
+
 /* Reduce overall padding */
 .main .block-container {
     padding-top: 1rem;
@@ -165,7 +198,7 @@ def get_data_from_aws() -> Optional[pd.DataFrame]:
             try:
                 response = s3_client.get_object(
                     Bucket=bucket,
-                    Key='health_data.csv'
+                    Key='health_data_encrypted.csv'
                 )
                 encrypted_data = response['Body'].read()
                 decrypted_data = decrypt_data(encrypted_data)
@@ -549,6 +582,144 @@ def prepare_display_table(df: pd.DataFrame) -> pd.DataFrame:
     
     return display_df.rename(columns=column_names)
 
+def create_manual_data_entry(df: pd.DataFrame):
+    """Create a form for manual data entry."""
+    # Get the date range for the date picker
+    min_date = df['date'].min()
+    max_date = df['date'].max()
+    
+    # Initialize form state if not exists
+    if 'manual_form_state' not in st.session_state:
+        st.session_state.manual_form_state = {
+            'date': datetime.now().date(),
+            'bodyweight': None,
+            'lift': None
+        }
+    
+    # Create a form for data entry
+    with st.form("manual_data_entry"):
+        # Create title and button in the same row
+        title_col, button_col = st.columns([3, 1])
+        with title_col:
+            st.markdown("<h4 style='color: #2c3e50; margin-bottom: 1rem;'>Manual Data Entry</h4>", unsafe_allow_html=True)
+        with button_col:
+            submitted = st.form_submit_button("Save Data", use_container_width=True)
+        
+        # Create three columns for the form inputs
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            # Date selection
+            selected_date = st.date_input(
+                "Date",
+                value=st.session_state.manual_form_state['date'],
+                min_value=min_date.date(),
+                max_value=max_date.date(),
+                key="manual_date"
+            )
+        
+        with col2:
+            # Bodyweight input
+            bodyweight = st.number_input(
+                "Bodyweight (kg)",
+                min_value=0.0,
+                max_value=500.0,
+                value=st.session_state.manual_form_state['bodyweight'],
+                step=0.1,
+                format="%.1f",
+                key="manual_bodyweight"
+            )
+        
+        with col3:
+            # Lift dropdown with True/False
+            lift = st.selectbox(
+                "Lift",
+                options=[None, True, False],
+                index=0 if st.session_state.manual_form_state['lift'] is None else 
+                      (1 if st.session_state.manual_form_state['lift'] else 2),
+                format_func=lambda x: "Select..." if x is None else str(x),
+                key="manual_lift"
+            )
+        
+        if submitted:
+            # Create a new ManualData entry
+            manual_data = ManualData(
+                source="manual",
+                date=datetime.combine(selected_date, datetime.min.time()),
+                bodyweight_kg=bodyweight if bodyweight is not None else None,
+                lift=lift
+            )
+            
+            # Convert to DataFrame row
+            new_data = {
+                'date': manual_data.date,
+                'manual__bodyweight_kg': manual_data.bodyweight_kg,
+                'manual__lift': manual_data.lift
+            }
+            
+            # Create temp data with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            temp_data = {
+                'timestamp': timestamp,
+                'data': new_data
+            }
+            
+            try:
+                s3_client = get_s3_client()
+                secrets = get_shared_secrets()
+                bucket = secrets.AWS_S3_BUCKET_NAME
+                
+                # Save temp file first
+                temp_key = f'temp_{timestamp}.json'
+                temp_json = json.dumps(temp_data, default=str)
+                encrypted_temp = encrypt_data(temp_json.encode('utf-8'))
+                s3_client.put_object(
+                    Bucket=bucket,
+                    Key=temp_key,
+                    Body=encrypted_temp
+                )
+                
+                # Then update main data file
+                # Check if a row for this date already exists
+                date_mask = df['date'].dt.date == selected_date
+                if date_mask.any():
+                    # Update existing row
+                    for col, value in new_data.items():
+                        if value is not None:  # Only update non-None values
+                            df.loc[date_mask, col] = value
+                else:
+                    # Create new row
+                    new_row = pd.DataFrame([new_data])
+                    df = pd.concat([df, new_row], ignore_index=True)
+                
+                # Convert to CSV and encrypt
+                csv_buffer = io.StringIO()
+                df.to_csv(csv_buffer, index=False)
+                encrypted_data = encrypt_data(csv_buffer.getvalue().encode('utf-8'))
+                
+                # Upload to S3
+                s3_client.put_object(
+                    Bucket=bucket,
+                    Key='health_data_encrypted.csv',
+                    Body=encrypted_data
+                )
+                
+                st.success(f"Data saved successfully!")
+                
+                # Reset form state
+                st.session_state.manual_form_state = {
+                    'date': datetime.now().date(),
+                    'bodyweight': None,
+                    'lift': None
+                }
+                
+                # Clear all caches and trigger refresh
+                st.cache_data.clear()
+                st.session_state.refresh_flag = True
+                
+            except Exception as e:
+                st.error(f"Error saving data: {e}")
+
 def main():
     """Main dashboard function."""
     setup_page()
@@ -557,7 +728,10 @@ def main():
     # Check if a refresh was requested (and reset the flag)
     if st.session_state.refresh_flag:
         st.session_state.refresh_flag = False
+        # Clear all caches to ensure fresh data
+        st.cache_data.clear()
         st.rerun()
+        return  # Exit after rerun to prevent duplicate rendering
     
     # Get data from AWS
     df = get_data_from_aws()
@@ -610,6 +784,12 @@ def main():
     # Display data table
     display_df = prepare_display_table(filtered_df)
     st.dataframe(display_df, use_container_width=True, hide_index=True)
+    
+    # Add a divider before manual entry
+    st.markdown("---")
+    
+    # Add manual entry form at the bottom
+    create_manual_data_entry(df)
 
 if __name__ == "__main__":
     main() 

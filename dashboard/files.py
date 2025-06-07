@@ -62,10 +62,10 @@ def handle_file_aws(
     # Set up paths and keys
     if file_type == "json":
         default_path = DEFAULT_JSON_PATH
-        s3_key = 'health_data.json'
+        s3_key = 'health_data_encrypted.json'
     else:  # csv
         default_path = DEFAULT_CSV_PATH
-        s3_key = 'health_data.csv'
+        s3_key = 'health_data_encrypted.csv'
     
     local_path = local_path or default_path
     

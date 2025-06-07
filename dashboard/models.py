@@ -237,8 +237,8 @@ class GarminData(BaseData):
         )
     }
 
-class GSheetData(BaseData):
-    """Data from Google Sheets tracking lifts and bodyweight"""
+class ManualData(BaseData):
+    """Data manually entered for tracking lifts and bodyweight"""
     bodyweight_kg: float | None = Field(None, description="Bodyweight in kilograms")
     lift: bool | None = Field(None, description="Whether a lift was done on this day")
 
@@ -261,7 +261,7 @@ class GSheetData(BaseData):
         )
     }
 
-AppData = TypeVar('AppData', OuraData, CronometerData, StravaData, GarminData, GSheetData)
+AppData = TypeVar('AppData', OuraData, CronometerData, StravaData, GarminData, ManualData)
 
 class DailyData(BaseModel):
     """Combined daily data from all sources"""
@@ -272,4 +272,4 @@ class DailyData(BaseModel):
     cronometer: CronometerData | None = None
     strava: StravaData | None = None
     garmin: GarminData | None = None
-    gsheet: GSheetData | None = None
+    manual: ManualData | None = None
