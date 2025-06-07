@@ -425,19 +425,27 @@ def create_weekly_bar_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     # Then sort descending for display
     plot_df = plot_df.sort_values('date', ascending=False)
     
+    # Add hover text showing the week range
+    plot_df.loc[:, 'hover_text'] = plot_df.apply(
+        lambda row: f"Weekly Total: {row[column]:.1f}",
+        axis=1
+    )
+    
     fig = px.bar(
         plot_df,
         x='date',
         y=column,
         title=None,
-        labels={'date': 'Date', column: ''}
+        labels={'date': 'Date', column: ''},
+        hover_data={'hover_text': True}
     )
     
     fig.update_traces(
         marker_color=color,
         marker_line_width=0,
         opacity=0.85,
-        marker_pattern_shape=""
+        marker_pattern_shape="",
+        hovertemplate='%{customdata[0]}<extra></extra>'
     )
     
     return fig
@@ -448,8 +456,7 @@ def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     df.loc[:, f'{column}_rolling'] = df[column].rolling(window=7, min_periods=1, center=True).mean()
     
     df.loc[:, 'hover_text'] = df.apply(
-        lambda row: f"Date: {row['date'].strftime('%Y-%m-%d')}<br>" +
-                   f"Actual: {row[column]:.1f}<br>" +
+        lambda row: f"Actual: {row[column]:.1f}<br>" +
                    f"7-day Avg: {row[f'{column}_rolling']:.1f}",
         axis=1
     )

@@ -193,7 +193,7 @@ class GarminData(BaseData):
             description="Total activity distance from Garmin",
             unit="km",
             sum_weekly=True,
-            display_delay=1
+            display_delay=0
         ),
         "total_duration_hours": MetricMetadata(
             pretty_name="Running Duration",
@@ -201,7 +201,7 @@ class GarminData(BaseData):
             description="Total activity duration from Garmin",
             unit="hours",
             sum_weekly=True,
-            display_delay=1
+            display_delay=0
         ),
         "steps": MetricMetadata(
             pretty_name="Steps",
@@ -233,7 +233,7 @@ class GarminData(BaseData):
             description="Maximum oxygen consumption measured by Garmin",
             unit="ml/kg/min",
             sum_weekly=False,
-            display_delay=1
+            display_delay=0
         )
     }
 
