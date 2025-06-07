@@ -586,7 +586,8 @@ def create_manual_data_entry(df: pd.DataFrame):
     """Create a form for manual data entry."""
     # Get the date range for the date picker
     min_date = df['date'].min()
-    max_date = df['date'].max()
+    # Allow dates up to 1 year in the future
+    max_date = max(df['date'].max(), datetime.now() + timedelta(days=365))
     
     # Initialize form state if not exists
     if 'manual_form_state' not in st.session_state:
@@ -706,7 +707,7 @@ def create_manual_data_entry(df: pd.DataFrame):
                 
                 st.success(f"Data saved successfully!")
                 
-                # Reset form state
+                # Reset form state with today's date
                 st.session_state.manual_form_state = {
                     'date': datetime.now().date(),
                     'bodyweight': None,
