@@ -257,7 +257,7 @@ class ManualData(BaseData):
             description="Whether a lift was done on this day",
             unit=None,
             sum_weekly=True,
-            display_delay=1
+            display_delay=0
         )
     }
 
