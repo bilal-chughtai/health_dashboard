@@ -486,11 +486,15 @@ def create_weekly_bar_plot(df: pd.DataFrame, column: str, color: str) -> Any:
 def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     """Create a daily line plot with rolling average."""
     df = df.copy()
-    df.loc[:, f'{column}_rolling'] = df[column].rolling(window=7, min_periods=1, center=True).mean()
+    
+    # Determine smoothing window based on time range
+    smoothing_window = 30 if st.session_state.time_range in ["Past 6 Months", "Past Year", "All Time"] else 7
+    
+    df.loc[:, f'{column}_rolling'] = df[column].rolling(window=smoothing_window, min_periods=1, center=True).mean()
     
     df.loc[:, 'hover_text'] = df.apply(
         lambda row: f"Actual: {row[column]:.1f}<br>" +
-                   f"7-day Avg: {row[f'{column}_rolling']:.1f}",
+                   f"{smoothing_window}-day Avg: {row[f'{column}_rolling']:.1f}",
         axis=1
     )
     
