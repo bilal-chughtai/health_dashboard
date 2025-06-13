@@ -276,6 +276,9 @@ def on_type_change():
 
 def on_source_change():
     st.session_state.selected_source = st.session_state.source_radio
+    # Reset comparison metrics when source changes
+    st.session_state.compare_metric_1 = None
+    st.session_state.compare_metric_2 = None
 
 def on_time_range_change():
     st.session_state.time_range = st.session_state.time_radio
@@ -500,10 +503,10 @@ def create_weekly_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
         # Force using regular Scatter instead of Scattergl for better compatibility
         fig = px.line(
             plot_data,
-            x='date',
+        x='date',
             y='value',
             color='variable',
-            title=None,
+        title=None,
             labels={'date': 'Date', 'value': '', 'variable': ''},
             hover_data={'hover_text': True},
             range_y=[y_min, y_max],
@@ -531,11 +534,11 @@ def create_weekly_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
         # Add weekly data points with thinner lines if daily traces are enabled
         if st.session_state.show_daily_traces:
             fig.update_traces(
-                line=dict(color=color, width=1),
-                opacity=0.3,
-                hoverinfo='none',
-                hovertemplate=None,
-                selector=dict(name=column)
+                        line=dict(color=color, width=1),
+                        opacity=0.3,
+                        hoverinfo='none',
+                        hovertemplate=None,
+                        selector=dict(name=column)
             )
         
         return fig
