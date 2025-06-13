@@ -174,7 +174,9 @@ def initialize_session_state():
         'show_daily_traces': False,
         'use_single_column': False,
         'refresh_flag': False,
-        'refresh_toggle': False
+        'refresh_toggle': False,
+        'compare_metric_1': None,  # Will be set to first metric when available
+        'compare_metric_2': None,  # Will be set to second metric when available
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -355,7 +357,7 @@ def create_sidebar_filters(df: pd.DataFrame):
             value=st.session_state.use_single_column,
             key="use_single_column"
         )
-        
+
 
         # Create refresh toggle with callback
         st.toggle(
@@ -405,7 +407,7 @@ def filter_columns_by_type_and_source(df: pd.DataFrame, selected_types: List[Met
 def create_plot(plot_df: pd.DataFrame, column: str, source: str, pretty_name: str, 
                 category: Optional[MetricCategory], unit: Optional[str], sum_weekly: bool):
     """Create a single plot for a metric."""
-    category_color = CATEGORY_COLORS.get(category, '#3498db') if category else '#3498db'
+    category_color = get_category_color(category)
     y_axis_label = unit if unit else ""
     
     # Get display delay metadata for this column
@@ -438,50 +440,109 @@ def create_plot(plot_df: pd.DataFrame, column: str, source: str, pretty_name: st
         )
         
         if sum_weekly:
-            fig = create_weekly_bar_plot(plot_df, column, category_color)
+            fig = create_weekly_line_plot(plot_df, column, category_color)
         else:
             fig = create_daily_line_plot(plot_df, column, category_color)
         
         update_plot_layout(fig, y_axis_label)
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-def create_weekly_bar_plot(df: pd.DataFrame, column: str, color: str) -> Any:
-    """Create a weekly bar plot for summed metrics."""
+def create_weekly_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
+    """Create a weekly line plot for summed metrics."""
     # Create a proper copy of the entire DataFrame first
     plot_df = df.copy()
     # Then select columns using .loc
     plot_df = plot_df.loc[:, ['date', column]].copy()
+    
+    # Convert boolean values to float if needed
+    if plot_df[column].dtype == bool:
+        plot_df[column] = plot_df[column].astype(float)
+    
     plot_df.set_index('date', inplace=True)
     plot_df = plot_df.resample('W-MON', closed='left').sum().reset_index()
     # Shift dates backward by one week to show the Monday that starts the week
     plot_df.loc[:, 'date'] = plot_df['date'] - pd.Timedelta(days=7)
-    # Then sort descending for display
-    plot_df = plot_df.sort_values('date', ascending=False)
+    # Then sort for display
+    plot_df = plot_df.sort_values('date')
     
-    # Add hover text showing the week range
+    # Calculate rolling average (using 4 weeks as the window for weekly data)
+    rolling_col = f'{column}_rolling'
+    plot_df[rolling_col] = plot_df[column].rolling(window=4, min_periods=1, center=True).mean()
+    
+    # Ensure both columns are float
+    plot_df[column] = plot_df[column].astype(float)
+    plot_df[rolling_col] = plot_df[rolling_col].astype(float)
+    
+    # Add hover text showing both weekly total and rolling average
     plot_df.loc[:, 'hover_text'] = plot_df.apply(
-        lambda row: f"Weekly Total: {row[column]:.1f}",
+        lambda row: f"Weekly Total: {row[column]:.1f}<br>" +
+                   f"4-week Avg: {row[rolling_col]:.1f}",
         axis=1
     )
     
-    fig = px.bar(
-        plot_df,
-        x='date',
-        y=column,
-        title=None,
-        labels={'date': 'Date', column: ''},
-        hover_data={'hover_text': True}
-    )
+    # Calculate y-axis range
+    rolling_min = plot_df[rolling_col].min()
+    rolling_max = plot_df[rolling_col].max()
+    rolling_range = rolling_max - rolling_min
+    y_min = rolling_min - (rolling_range * 0.1)
+    y_max = rolling_max + (rolling_range * 0.1)
     
-    fig.update_traces(
-        marker_color=color,
-        marker_line_width=0,
-        opacity=0.85,
-        marker_pattern_shape="",
-        hovertemplate='%{customdata[0]}<extra></extra>'
-    )
-    
-    return fig
+    try:
+        # Create a long-form dataframe for plotting
+        plot_data = pd.melt(
+            plot_df,
+            id_vars=['date', 'hover_text'],
+            value_vars=[column, rolling_col] if st.session_state.show_daily_traces else [rolling_col],
+            var_name='variable',
+            value_name='value'
+        )
+        
+        # Force using regular Scatter instead of Scattergl for better compatibility
+        fig = px.line(
+            plot_data,
+            x='date',
+            y='value',
+            color='variable',
+            title=None,
+            labels={'date': 'Date', 'value': '', 'variable': ''},
+            hover_data={'hover_text': True},
+            range_y=[y_min, y_max],
+            render_mode='svg'  # This forces using regular Scatter instead of Scattergl
+        )
+        
+        # Update traces with smoothing for all trace types
+        fig.update_traces(
+            line_shape='spline',
+            mode='lines',
+            selector=dict(name=rolling_col)
+        )
+        
+        # Add smoothing only for non-Scattergl traces
+        for trace in fig.data:
+            if trace.name == rolling_col and not isinstance(trace, go.Scattergl):
+                trace.line.smoothing = 1.3
+        
+        fig.update_traces(
+            line=dict(color=color, width=2.5),
+            hovertemplate='%{customdata[0]}<extra></extra>',
+            selector=dict(name=rolling_col)
+        )
+        
+        # Add weekly data points with thinner lines if daily traces are enabled
+        if st.session_state.show_daily_traces:
+            fig.update_traces(
+                line=dict(color=color, width=1),
+                opacity=0.3,
+                hoverinfo='none',
+                hovertemplate=None,
+                selector=dict(name=column)
+            )
+        
+        return fig
+        
+    except Exception as e:
+        st.error(f"Error creating plot: {e}")
+        raise
 
 def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     """Create a daily line plot with rolling average."""
@@ -606,7 +667,7 @@ def create_manual_data_entry(df: pd.DataFrame):
         # Create title and button in the same row
         title_col, button_col = st.columns([3, 1])
         with title_col:
-            st.markdown("<h4 style='color: #2c3e50; margin-bottom: 1rem;'>Manual Data Entry</h4>", unsafe_allow_html=True)
+            pass
         with button_col:
             submitted = st.form_submit_button("Save Data", use_container_width=True)
         
@@ -726,6 +787,243 @@ def create_manual_data_entry(df: pd.DataFrame):
             except Exception as e:
                 st.error(f"Error saving data: {e}")
 
+def get_category_color(category: Optional[MetricCategory], is_dual_axis: bool = False, is_second_metric: bool = False) -> str:
+    """Get the color for a metric category, with a default if category is None.
+    For dual-axis plots, uses fixed blue/red colors regardless of category."""
+    if is_dual_axis:
+        return '#e74c3c' if is_second_metric else '#3498db'  # Red for second metric, blue for first
+    if category is None:
+        return '#3498db'  # Default blue
+    return CATEGORY_COLORS.get(category, '#3498db')
+
+def get_smoothing_window(start_date: pd.Timestamp, end_date: pd.Timestamp) -> int:
+    """Determine the smoothing window based on the time range."""
+    date_range = end_date - start_date
+    if date_range.days > 180:  # More than 6 months
+        return 30
+    elif date_range.days > 90:  # More than 3 months
+        return 14
+    else:
+        return 7
+
+def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> PlotlyFigure:
+    """Create a dual-axis plot comparing two metrics."""
+    # Get metadata for both metrics
+    source1, pretty_name1, category1, unit1, sum_weekly1 = get_column_metadata(metric1)
+    source2, pretty_name2, category2, unit2, sum_weekly2 = get_column_metadata(metric2)
+    
+    # Create a copy of the dataframe for plotting
+    plot_df = df.copy()
+    
+    # Create figure with secondary y-axis
+    fig = go.Figure()
+    
+    # Fixed colors for dual-axis plot
+    LEFT_COLOR = '#3498db'  # Blue
+    RIGHT_COLOR = '#e74c3c'  # Red
+    
+    # Helper function to process a metric and add its traces
+    def add_metric_traces(metric: str, pretty_name: str, sum_weekly: bool, 
+                         is_secondary: bool = False) -> None:
+        # Get the appropriate color based on which axis
+        color = RIGHT_COLOR if is_secondary else LEFT_COLOR
+        
+        # Convert boolean values to float if needed
+        if plot_df[metric].dtype == bool:
+            plot_df[metric] = plot_df[metric].astype(float)
+        
+        # If metric is weekly summed, create weekly data
+        if sum_weekly:
+            # Create weekly summed data
+            weekly_df = plot_df.copy()
+            weekly_df.set_index('date', inplace=True)
+            weekly_df = weekly_df.resample('W-MON', closed='left').sum().reset_index()
+            # Shift dates backward by one week to show the Monday that starts the week
+            weekly_df.loc[:, 'date'] = weekly_df['date'] - pd.Timedelta(days=7)
+            weekly_df = weekly_df.sort_values('date')
+            
+            # Calculate 4-week rolling average
+            rolling_col = f'{metric}_rolling'
+            weekly_df[rolling_col] = weekly_df[metric].rolling(window=4, min_periods=1, center=True).mean()
+            
+            # Add weekly sums trace if daily traces are enabled
+            if st.session_state.show_daily_traces:
+                fig.add_trace(
+                    go.Scatter(
+                        x=weekly_df['date'],
+                        y=weekly_df[metric],
+                        name=f"{pretty_name} (Weekly)",
+                        line=dict(
+                            color=color,
+                            width=1
+                        ),
+                        opacity=0.3,
+                        yaxis='y2' if is_secondary else 'y',
+                        hoverinfo='none'
+                    )
+                )
+            
+            # Add rolling average trace
+            fig.add_trace(
+                go.Scatter(
+                    x=weekly_df['date'],
+                    y=weekly_df[rolling_col],
+                    name=f"{pretty_name} (4-week Avg)",
+                    line=dict(
+                        color=color,
+                        width=2.5,
+                        smoothing=1.3
+                    ),
+                    yaxis='y2' if is_secondary else 'y',
+                    hovertemplate=f"Weekly Total: %{{y:.1f}}<br>4-week Avg: %{{y:.1f}}<extra></extra>"
+                )
+            )
+        else:
+            # For non-weekly metrics, use daily data with smoothing
+            smoothing_window = get_smoothing_window(plot_df['date'].min(), plot_df['date'].max())
+            rolling_col = f'{metric}_rolling'
+            plot_df[rolling_col] = plot_df[metric].rolling(window=smoothing_window, min_periods=1, center=True).mean()
+            
+            # Add daily traces if enabled
+            if st.session_state.show_daily_traces:
+                fig.add_trace(
+                    go.Scatter(
+                        x=plot_df['date'],
+                        y=plot_df[metric],
+                        name=f"{pretty_name} (Daily)",
+                        line=dict(
+                            color=color,
+                            width=1
+                        ),
+                        opacity=0.3,
+                        yaxis='y2' if is_secondary else 'y',
+                        hoverinfo='none'
+                    )
+                )
+            
+            # Add smoothed line
+            fig.add_trace(
+                go.Scatter(
+                    x=plot_df['date'],
+                    y=plot_df[rolling_col],
+                    name=f"{pretty_name} ({smoothing_window}-day Avg)",
+                    line=dict(
+                        color=color,
+                        width=2.5,
+                        smoothing=1.3
+                    ),
+                    yaxis='y2' if is_secondary else 'y',
+                    hovertemplate=f"Daily: %{{y:.1f}}<br>{smoothing_window}-day Avg: %{{y:.1f}}<extra></extra>"
+                )
+            )
+    
+    # Add traces for both metrics
+    add_metric_traces(metric1, pretty_name1, sum_weekly1)
+    add_metric_traces(metric2, pretty_name2, sum_weekly2, is_secondary=True)
+    
+    # Update layout
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(255, 255, 255, 0.8)"
+        ),
+        hovermode='x unified',
+        margin=dict(l=0, r=0, t=30, b=0),
+        height=400,
+        yaxis=dict(
+            title=dict(
+                text=pretty_name1,
+                font=dict(size=12, color=LEFT_COLOR)
+            ),
+            side='left',
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.1)',
+            tickfont=dict(color=LEFT_COLOR)
+        ),
+        yaxis2=dict(
+            title=dict(
+                text=pretty_name2,
+                font=dict(size=12, color=RIGHT_COLOR)
+            ),
+            side='right',
+            showgrid=False,
+            overlaying='y',
+            tickfont=dict(color=RIGHT_COLOR)
+        ),
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.1)'
+        )
+    )
+    
+    return fig
+
+def create_compare_mode_section(df: pd.DataFrame, available_metrics: List[str]):
+    """Create the compare mode section with metric selection and dual-axis plot."""
+    st.markdown("---")
+    
+    # Create a container for the compare mode section
+    with st.container():        
+        # Create two columns for metric selection
+        col1, col2 = st.columns(2)
+        
+        # Get pretty names for the dropdown options and sort by source
+        metric_options = []
+        for metric in available_metrics:
+            source, pretty_name, _, _, _ = get_column_metadata(metric)
+            display_name = f"{pretty_name} ({source.title()})"
+            # Get source index for sorting (use len(SOURCE_ORDER) for sources not in the list)
+            source_index = next((i for i, s in enumerate(SOURCE_ORDER) if s.lower() == source.lower()), len(SOURCE_ORDER))
+            metric_options.append((metric, display_name, source_index))
+        
+        # Sort options by source order, then by display name
+        metric_options.sort(key=lambda x: (x[2], x[1]))
+        
+        # Set default selections if not already set
+        if st.session_state.compare_metric_1 is None and metric_options:
+            st.session_state.compare_metric_1 = metric_options[0][0]
+        if st.session_state.compare_metric_2 is None and len(metric_options) > 1:
+            st.session_state.compare_metric_2 = metric_options[1][0]
+        
+        with col1:
+            metric1 = st.selectbox(
+                "Select first metric",
+                options=[None] + [opt[0] for opt in metric_options],
+                format_func=lambda x: "Select a metric..." if x is None else 
+                    next((opt[1] for opt in metric_options if opt[0] == x), x),
+                index=0 if st.session_state.compare_metric_1 is None else 
+                    [opt[0] for opt in metric_options].index(st.session_state.compare_metric_1) + 1,
+                key="compare_metric_1_select",
+                label_visibility="collapsed"
+            )
+            st.session_state.compare_metric_1 = metric1
+        
+        with col2:
+            metric2 = st.selectbox(
+                "Select second metric",
+                options=[None] + [opt[0] for opt in metric_options],
+                format_func=lambda x: "Select a metric..." if x is None else 
+                    next((opt[1] for opt in metric_options if opt[0] == x), x),
+                index=0 if st.session_state.compare_metric_2 is None else 
+                    [opt[0] for opt in metric_options].index(st.session_state.compare_metric_2) + 1,
+                key="compare_metric_2_select",
+                label_visibility="collapsed"
+            )
+            st.session_state.compare_metric_2 = metric2
+        
+        # Create the dual-axis plot if both metrics are selected
+        if metric1 and metric2:
+            fig = create_dual_axis_plot(df, metric1, metric2)
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        
+        # Add a divider after the compare mode section
+        st.markdown("---")
+
 def main():
     """Main dashboard function."""
     setup_page()
@@ -788,11 +1086,13 @@ def main():
                     create_plot(plot_df, column, source, pretty_name, category, unit, sum_weekly)
     
     # Display data table
+    st.markdown("---")
+
     display_df = prepare_display_table(filtered_df)
     st.dataframe(display_df, use_container_width=True, hide_index=True)
     
-    # Add a divider before manual entry
-    st.markdown("---")
+    # Add compare mode section
+    create_compare_mode_section(filtered_df, columns_to_plot)
     
     # Add manual entry form at the bottom
     create_manual_data_entry(df)
