@@ -21,11 +21,20 @@ Aggregates and visualizes data from a bunch of apps / wearables in one place.
 
 ### Backend Development
 
-The main entry point is `poetry run python -m dashboard.main`. 
+The main entry point is `poetry run python -m dashboard.main`.
 
 - For updating data on AWS use the `--online` flag, this is what is used in deployment. By omitting we only read and write from local data.
 - `--apps` allows fetching of data from only certain apps.
 - `--past_days n` fetches data from the past `n` days.
+
+### Adding a new app
+
+1. `.secrets.template.json` and `.secrets.json`: Add API keys for the new app.
+2. `dashboard/secret.py`: Load the new API keys.
+3. `dashboard/models.py`: Add a new class inheriting from `BaseData` with fields and metadata that specifies the data model.
+4. `dashboard/connectors/`: Create a new connector class inheriting from `BaseConnector` that implements the logic to fetch the data.
+5. `dashboard/registry.py`: Add the new connector to `get_connectors()`.
+6. `dashboard/dashboard.py`: Import the model and update the source order if needed.
 
 ### Frontend Development
 
