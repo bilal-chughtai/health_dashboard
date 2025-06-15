@@ -274,6 +274,8 @@ def update_plot_layout(fig, y_axis_label: str, y_min: Optional[float] = None, y_
 # Callback functions for radio buttons
 def on_type_change():
     st.session_state.selected_type = st.session_state.type_radio
+    st.session_state.compare_metric_1 = None
+    st.session_state.compare_metric_2 = None
 
 def on_source_change():
     st.session_state.selected_source = st.session_state.source_radio
