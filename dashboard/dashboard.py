@@ -183,7 +183,7 @@ def initialize_session_state():
             st.session_state[key] = value
 
 @st.cache_data(ttl=CACHE_TTL)
-def get_data_from_aws() -> Optional[pd.DataFrame]:
+def download_data() -> Optional[pd.DataFrame]:
     """
     Get data directly from AWS S3 with caching.
     Returns None if data is not available.
@@ -195,12 +195,13 @@ def get_data_from_aws() -> Optional[pd.DataFrame]:
             s3_client = get_s3_client()
             secrets = get_shared_secrets()
             bucket = secrets.AWS_S3_BUCKET_NAME
+            csv_filename = secrets.AWS_CSV_FILENAME
             
             # Get data file
             try:
                 response = s3_client.get_object(
                     Bucket=bucket,
-                    Key='health_data_encrypted.csv'
+                    Key=csv_filename
                 )
                 encrypted_data = response['Body'].read()
                 decrypted_data = decrypt_data(encrypted_data)
@@ -212,7 +213,7 @@ def get_data_from_aws() -> Optional[pd.DataFrame]:
                 
             except ClientError as e:
                 if e.response['Error']['Code'] == 'NoSuchKey':
-                    st.error("No data found in AWS")
+                    st.error(f"No data found in AWS (looking for {csv_filename})")
                     return None
                 raise
         
@@ -711,6 +712,12 @@ def create_manual_data_entry(df: pd.DataFrame):
             )
         
         if submitted:
+            # Check if we're using random data
+            secrets = get_shared_secrets()
+            if 'random' in secrets.AWS_CSV_FILENAME.lower():
+                st.warning("Manual data entry is disabled for this deployment.")
+                return
+            
             # Create a new ManualData entry
             manual_data = ManualData(
                 source="manual",
@@ -769,7 +776,7 @@ def create_manual_data_entry(df: pd.DataFrame):
                 # Upload to S3
                 s3_client.put_object(
                     Bucket=bucket,
-                    Key='health_data_encrypted.csv',
+                    Key=secrets.AWS_CSV_FILENAME,
                     Body=encrypted_data
                 )
                 
@@ -875,7 +882,8 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
                     line=dict(
                         color=color,
                         width=2.5,
-                        smoothing=1.3
+                        smoothing=1.3,
+                        shape='spline'
                     ),
                     yaxis='y2' if is_secondary else 'y',
                     hovertemplate=f"Weekly Total: %{{y:.1f}}<br>4-week Avg: %{{y:.1f}}<extra></extra>"
@@ -896,7 +904,8 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
                         name=f"{pretty_name} (Daily)",
                         line=dict(
                             color=color,
-                            width=1
+                            width=1,
+                            shape='spline'
                         ),
                         opacity=0.3,
                         yaxis='y2' if is_secondary else 'y',
@@ -913,7 +922,8 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
                     line=dict(
                         color=color,
                         width=2.5,
-                        smoothing=1.3
+                        smoothing=1.3,
+                        shape='spline' 
                     ),
                     yaxis='y2' if is_secondary else 'y',
                     hovertemplate=f"Daily: %{{y:.1f}}<br>{smoothing_window}-day Avg: %{{y:.1f}}<extra></extra>"
@@ -1032,6 +1042,11 @@ def main():
     setup_page()
     initialize_session_state()
     
+    # Check if we're using random data and show disclaimer
+    secrets = get_shared_secrets()
+    if 'random' in secrets.AWS_CSV_FILENAME.lower():
+        st.warning("⚠️ This data is entirely synthetic")
+    
     # Check if a refresh was requested (and reset the flag)
     if st.session_state.refresh_flag:
         st.session_state.refresh_flag = False
@@ -1041,7 +1056,7 @@ def main():
         return  # Exit after rerun to prevent duplicate rendering
     
     # Get data from AWS
-    df = get_data_from_aws()
+    df = download_data()
     if df is None:
         st.error("Unable to load data. Please try again later.")
         st.stop()

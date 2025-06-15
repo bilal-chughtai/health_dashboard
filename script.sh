@@ -14,6 +14,8 @@ echo "Current datetime: $(date)" >> log.txt
 
 # Run the script
 python -m dashboard.main --online >> log.txt 2>&1
-
-# Print a new line
 echo "" >> log.txt
+
+# Run the script in random mode
+python -m dashboard.random --online --random >> random_log.txt 2>&1
+echo "" >> random_log.txt

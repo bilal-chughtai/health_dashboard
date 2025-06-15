@@ -16,6 +16,8 @@ class MetricMetadata(BaseModel):
     unit: str | None = Field(None, description="Unit of measurement if applicable")
     sum_weekly: bool = Field(False, description="Whether to sum this metric over weeks instead of averaging")
     display_delay: int = Field(1, description="Days to wait before displaying (0=same day, 1=next day, etc.)")
+    min_value: float | None = Field(None, description="Minimum reasonable value for this metric for random data gen")
+    max_value: float | None = Field(None, description="Maximum reasonable value for this metric for random data gen")
 
 class BaseData(BaseModel):
     """Base model for all data"""
@@ -51,7 +53,9 @@ class OuraData(BaseData):
             description="Overall sleep quality score from Oura Ring",
             unit="score",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=60,
+            max_value=100
         ),
         "sleep_duration_hours": MetricMetadata(
             pretty_name="Sleep Duration",
@@ -59,7 +63,9 @@ class OuraData(BaseData):
             description="Total time spent sleeping",
             unit="hours",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=6,  # Minimum reasonable sleep
+            max_value=10  # Maximum reasonable sleep
         ),
         "readiness_score": MetricMetadata(
             pretty_name="Readiness Score",
@@ -67,7 +73,9 @@ class OuraData(BaseData):
             description="Overall readiness score from Oura Ring",
             unit="score",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=60,
+            max_value=100
         ),
         "activity_score": MetricMetadata(
             pretty_name="Activity Score",
@@ -75,7 +83,9 @@ class OuraData(BaseData):
             description="Overall activity score from Oura Ring",
             unit="score",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=60,
+            max_value=100
         ),
         "steps": MetricMetadata(
             pretty_name="Steps",
@@ -83,7 +93,9 @@ class OuraData(BaseData):
             description="Total daily steps",
             unit="steps",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=2000,
+            max_value=40000  # Very active day
         ),
         "sleep_heart_rate": MetricMetadata(
             pretty_name="Sleep Avg HR",
@@ -91,7 +103,9 @@ class OuraData(BaseData):
             description="Average heart rate during sleep",
             unit="bpm",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=35,  # Very fit athlete
+            max_value=60   # High during sleep
         ),
         "sleep_lowest_heart_rate": MetricMetadata(
             pretty_name="Sleep Lowest HR",
@@ -99,7 +113,9 @@ class OuraData(BaseData):
             description="Lowest heart rate recorded during sleep",
             unit="bpm",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=40,  # Elite athlete
+            max_value=60   # High lowest HR
         ),
         "sleep_hrv": MetricMetadata(
             pretty_name="Sleep Avg HRV",
@@ -107,7 +123,9 @@ class OuraData(BaseData):
             description="Average heart rate variability during sleep",
             unit="ms",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=40,  # Very low HRV
+            max_value=90  # Very high HRV
         )
     }
 
@@ -125,7 +143,9 @@ class CronometerData(BaseData):
             description="Total daily caloric intake",
             unit="kcal",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=1000,  # Minimum safe intake
+            max_value=3000  # Very high intake
         ),
         "protein": MetricMetadata(
             pretty_name="Protein",
@@ -133,7 +153,9 @@ class CronometerData(BaseData):
             description="Total protein intake",
             unit="g",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=50,
+            max_value=200  # Very high protein diet
         ),
         "carbs": MetricMetadata(
             pretty_name="Carbs",
@@ -141,7 +163,9 @@ class CronometerData(BaseData):
             description="Total carbohydrate intake",
             unit="g",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=100,
+            max_value=300  # Very high carb diet
         ),
         "fat": MetricMetadata(
             pretty_name="Fat",
@@ -149,7 +173,9 @@ class CronometerData(BaseData):
             description="Total fat intake",
             unit="g",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=100,
+            max_value=300  # Very high fat diet
         )
     }
 
@@ -165,7 +191,9 @@ class StravaData(BaseData):
             description="Total running distance",
             unit="km",
             sum_weekly=True,
-            display_delay=1
+            display_delay=1,
+            min_value=0,
+            max_value=10  # marathon
         ),
         "total_duration_hours": MetricMetadata(
             pretty_name="Running Duration",
@@ -173,7 +201,9 @@ class StravaData(BaseData):
             description="Total running time",
             unit="hours",
             sum_weekly=True,
-            display_delay=1
+            display_delay=1,
+            min_value=0,
+            max_value=4  
         )
     }
 
@@ -193,7 +223,9 @@ class GarminData(BaseData):
             description="Total activity distance from Garmin",
             unit="km",
             sum_weekly=True,
-            display_delay=0
+            display_delay=0,
+            min_value=0,
+            max_value=4  # Ultra marathon
         ),
         "total_duration_hours": MetricMetadata(
             pretty_name="Running Duration",
@@ -201,7 +233,9 @@ class GarminData(BaseData):
             description="Total activity duration from Garmin",
             unit="hours",
             sum_weekly=True,
-            display_delay=0
+            display_delay=0,
+            min_value=0,
+            max_value=4  # Full day of activity
         ),
         "steps": MetricMetadata(
             pretty_name="Steps",
@@ -209,7 +243,9 @@ class GarminData(BaseData):
             description="Total daily steps from Garmin",
             unit="steps",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=2000,
+            max_value=30000  # Very active day
         ),
         "resting_heart_rate": MetricMetadata(
             pretty_name="Resting HR",
@@ -217,7 +253,9 @@ class GarminData(BaseData):
             description="Resting heart rate measured by Garmin",
             unit="bpm",
             sum_weekly=False,
-            display_delay=1
+            display_delay=1,
+            min_value=40,  # Elite athlete
+            max_value=60  # High resting HR
         ),
         "hrv": MetricMetadata(
             pretty_name="Sleep Avg HRV",
@@ -225,7 +263,9 @@ class GarminData(BaseData):
             description="Heart rate variability measured by Garmin",
             unit="ms",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=40,  # Very low HRV
+            max_value=90  # Very high HRV
         ),
         "vo2_max": MetricMetadata(
             pretty_name="VO2 Max",
@@ -233,7 +273,9 @@ class GarminData(BaseData):
             description="Maximum oxygen consumption measured by Garmin",
             unit="ml/kg/min",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=45,  # Very low VO2 max
+            max_value=60   # Elite athlete
         )
     }
 
@@ -249,7 +291,9 @@ class ManualData(BaseData):
             description="Daily bodyweight measurement",
             unit="kg",
             sum_weekly=False,
-            display_delay=0
+            display_delay=0,
+            min_value=70,  # Very low weight
+            max_value=90  # Very high weight
         ),
         "lift": MetricMetadata(
             pretty_name="Lift",
@@ -257,7 +301,9 @@ class ManualData(BaseData):
             description="Whether a lift was done on this day",
             unit=None,
             sum_weekly=True,
-            display_delay=0
+            display_delay=0,
+            min_value=0,  # Boolean represented as 0/1
+            max_value=1
         )
     }
 

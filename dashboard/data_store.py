@@ -5,21 +5,17 @@ from pathlib import Path
 from .models import DailyData, AppData
 from .registry import registry
 from pydantic import TypeAdapter
-from .files import DEFAULT_JSON_PATH
 
-DEFAULT_FILENAME = "data/health_data.json"
-
-def load_data(filename: str = DEFAULT_JSON_PATH) -> List[DailyData]:
+def load_data(filename: Path) -> List[DailyData]:
     """Load a list of DailyData from a JSON file using Pydantic's TypeAdapter."""
-    path = Path(filename)
-    if not path.exists():
+    if not filename.exists():
         return []
     with open(filename, 'r') as f:
         data = json.load(f)
     return TypeAdapter(List[DailyData]).validate_python(data)
 
 
-def save_data(data: List[DailyData], filename: str = DEFAULT_FILENAME) -> None:
+def save_data(data: List[DailyData], filename: Path) -> None:
     """Save a list of DailyData to a JSON file using Pydantic's model_dump."""
     with open(filename, 'w') as f:
         json.dump([d.model_dump() for d in data], f, indent=2, default=str)

@@ -1,9 +1,9 @@
 import pandas as pd
 from datetime import datetime
 from typing import List
+from pathlib import Path
 from dashboard.models import DailyData
 from .registry import registry
-from .files import DEFAULT_CSV_PATH
 
 def flatten_daily_data(daily: DailyData) -> dict:
     row = {"date": daily.date}
@@ -27,6 +27,6 @@ class DataFrameExporter:
         return df
 
     @staticmethod
-    def write_df_to_csv(df: pd.DataFrame, filename: str = DEFAULT_CSV_PATH) -> None:
+    def write_df_to_csv(df: pd.DataFrame, filename: Path) -> None:
         """Write the DataFrame to a CSV file."""
         df.to_csv(filename, index=False) 
