@@ -473,7 +473,7 @@ def create_weekly_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     
     # Calculate rolling average (using 4 weeks as the window for weekly data)
     rolling_col = f'{column}_rolling'
-    plot_df[rolling_col] = plot_df[column].rolling(window=4, min_periods=1, center=True).mean()
+    plot_df[rolling_col] = plot_df[column].rolling(window=4, min_periods=1, center=False).mean()
     
     # Ensure both columns are float
     plot_df[column] = plot_df[column].astype(float)
@@ -557,7 +557,7 @@ def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     # Determine smoothing window based on time range
     smoothing_window = 30 if st.session_state.time_range in ["Past 6 Months", "Past Year", "All Time"] else 7
     
-    df.loc[:, f'{column}_rolling'] = df[column].rolling(window=smoothing_window, min_periods=1, center=True).mean()
+    df.loc[:, f'{column}_rolling'] = df[column].rolling(window=smoothing_window, min_periods=1, center=False).mean()
     
     df.loc[:, 'hover_text'] = df.apply(
         lambda row: f"Actual: {row[column]:.1f}<br>" +
@@ -856,7 +856,7 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
             
             # Calculate 4-week rolling average
             rolling_col = f'{metric}_rolling'
-            weekly_df[rolling_col] = weekly_df[metric].rolling(window=4, min_periods=1, center=True).mean()
+            weekly_df[rolling_col] = weekly_df[metric].rolling(window=4, min_periods=1, center=False).mean()
             
             # Add weekly sums trace if daily traces are enabled
             if st.session_state.show_daily_traces:
@@ -895,7 +895,7 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
             # For non-weekly metrics, use daily data with smoothing
             smoothing_window = get_smoothing_window(plot_df['date'].min(), plot_df['date'].max())
             rolling_col = f'{metric}_rolling'
-            plot_df[rolling_col] = plot_df[metric].rolling(window=smoothing_window, min_periods=1, center=True).mean()
+            plot_df[rolling_col] = plot_df[metric].rolling(window=smoothing_window, min_periods=1, center=False).mean()
             
             # Add daily traces if enabled
             if st.session_state.show_daily_traces:
