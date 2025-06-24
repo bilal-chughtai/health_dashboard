@@ -482,7 +482,7 @@ def create_weekly_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     # Add hover text showing both weekly total and rolling average
     plot_df.loc[:, 'hover_text'] = plot_df.apply(
         lambda row: f"Weekly Total: {row[column]:.1f}<br>" +
-                   f"4-week Avg: {row[rolling_col]:.1f}",
+                   f"4-week Avg: {row[rolling_col]:.1f}" if st.session_state.show_daily_traces else f"4-week Avg: {row[rolling_col]:.1f}",
         axis=1
     )
     
@@ -561,7 +561,7 @@ def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     
     df.loc[:, 'hover_text'] = df.apply(
         lambda row: f"Actual: {row[column]:.1f}<br>" +
-                   f"{smoothing_window}-day Avg: {row[f'{column}_rolling']:.1f}",
+                   f"{smoothing_window}-day Avg: {row[f'{column}_rolling']:.1f}" if st.session_state.show_daily_traces else f"{smoothing_window}-day Avg: {row[f'{column}_rolling']:.1f}",
         axis=1
     )
     
@@ -608,10 +608,11 @@ def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
         
         if st.session_state.show_daily_traces:
             fig.update_traces(
-                line=dict(color=color, width=1),
+                line=dict(color=color, width=1, smoothing=1.3, shape='spline'),
                 opacity=0.3,
                 hoverinfo='none',
                 hovertemplate=None,
+                line_shape='spline',
                 selector=dict(name=column)
             )
         
@@ -858,6 +859,12 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
             rolling_col = f'{metric}_rolling'
             weekly_df[rolling_col] = weekly_df[metric].rolling(window=4, min_periods=1, center=False).mean()
             
+            # Create hover text for the rolling average
+            weekly_df.loc[:, 'hover_text'] = weekly_df.apply(
+                lambda row: f"Weekly Total: {row[metric]:.1f}<br>4-week Avg: {row[rolling_col]:.1f}" if st.session_state.show_daily_traces else f"4-week Avg: {row[rolling_col]:.1f}",
+                axis=1
+            )
+            
             # Add weekly sums trace if daily traces are enabled
             if st.session_state.show_daily_traces:
                 fig.add_trace(
@@ -888,7 +895,8 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
                         shape='spline'
                     ),
                     yaxis='y2' if is_secondary else 'y',
-                    hovertemplate=f"Weekly Total: %{{y:.1f}}<br>4-week Avg: %{{y:.1f}}<extra></extra>"
+                    text=weekly_df['hover_text'],
+                    hovertemplate='%{text}<extra></extra>'
                 )
             )
         else:
@@ -896,6 +904,12 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
             smoothing_window = get_smoothing_window(plot_df['date'].min(), plot_df['date'].max())
             rolling_col = f'{metric}_rolling'
             plot_df[rolling_col] = plot_df[metric].rolling(window=smoothing_window, min_periods=1, center=False).mean()
+            
+            # Create hover text for the rolling average
+            plot_df.loc[:, 'hover_text'] = plot_df.apply(
+                lambda row: f"Daily: {row[metric]:.1f}<br>{smoothing_window}-day Avg: {row[rolling_col]:.1f}" if st.session_state.show_daily_traces else f"{smoothing_window}-day Avg: {row[rolling_col]:.1f}",
+                axis=1
+            )
             
             # Add daily traces if enabled
             if st.session_state.show_daily_traces:
@@ -907,6 +921,7 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
                         line=dict(
                             color=color,
                             width=1,
+                            smoothing=1.3,
                             shape='spline'
                         ),
                         opacity=0.3,
@@ -928,7 +943,8 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
                         shape='spline' 
                     ),
                     yaxis='y2' if is_secondary else 'y',
-                    hovertemplate=f"Daily: %{{y:.1f}}<br>{smoothing_window}-day Avg: %{{y:.1f}}<extra></extra>"
+                    text=plot_df['hover_text'],
+                    hovertemplate='%{text}<extra></extra>'
                 )
             )
     
