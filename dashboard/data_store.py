@@ -30,9 +30,19 @@ def update_data(old_data: List[DailyData], new_data: List[DailyData]) -> List[Da
             existing = data_by_date[new_entry.date]
             # Update each source field if it's not None in the new entry
             for source in registry.get_sources():
-                new_value = getattr(new_entry, source)
-                if new_value is not None:
-                    setattr(existing, source, new_value)
+                new_source_data = getattr(new_entry, source)
+                existing_source_data = getattr(existing, source)
+                
+                if new_source_data is not None:
+                    # If existing source data is None, create new source data
+                    if existing_source_data is None:
+                        setattr(existing, source, new_source_data)
+                    else:
+                        # Update individual fields within the source data
+                        for field_name in new_source_data.model_fields.keys():
+                            new_field_value = getattr(new_source_data, field_name)
+                            if new_field_value is not None:
+                                setattr(existing_source_data, field_name, new_field_value)
         else:
             # Add new entry if date doesn't exist
             data_by_date[new_entry.date] = new_entry
