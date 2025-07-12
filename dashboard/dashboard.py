@@ -812,10 +812,8 @@ def get_category_color(category: Optional[MetricCategory], is_dual_axis: bool = 
 def get_smoothing_window(start_date: pd.Timestamp, end_date: pd.Timestamp) -> int:
     """Determine the smoothing window based on the time range."""
     date_range = end_date - start_date
-    if date_range.days > 180:  # More than 6 months
+    if date_range.days > 90:  # More than 3 months
         return 30
-    elif date_range.days > 90:  # More than 3 months
-        return 14
     else:
         return 7
 
@@ -828,12 +826,31 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
     # Create a copy of the dataframe for plotting
     plot_df = df.copy()
     
+    # Calculate correlation between the two metrics
+    correlation = plot_df[metric1].corr(plot_df[metric2])
+    correlation_text = f"Correlation: {correlation:.3f}" if not pd.isna(correlation) else "Correlation: N/A     "
+    
     # Create figure with secondary y-axis
     fig = go.Figure()
     
     # Fixed colors for dual-axis plot
     LEFT_COLOR = '#3498db'  # Blue
     RIGHT_COLOR = '#e74c3c'  # Red
+    
+    # Add correlation as a trace with no data for legend display (at the beginning)
+    fig.add_trace(
+        go.Scatter(
+            x=[plot_df['date'].median()],  # Middle of the plot
+            y=[plot_df[metric1].median()],
+            name=correlation_text,
+            showlegend=True,
+            legendgroup="correlation",
+            mode='markers',
+            marker=dict(size=0, opacity=0),  # Invisible marker
+            line=dict(width=0),  # No line
+            hoverinfo='skip'  # No hover info
+        )
+    )
     
     # Helper function to process a metric and add its traces
     def add_metric_traces(metric: str, pretty_name: str, sum_weekly: bool, 
@@ -961,7 +978,9 @@ def create_dual_axis_plot(df: pd.DataFrame, metric1: str, metric2: str) -> Plotl
             y=1.02,
             xanchor="right",
             x=1,
-            bgcolor="rgba(255, 255, 255, 0.8)"
+            bgcolor="rgba(255, 255, 255, 0.8)",
+            itemwidth=30,
+            indentation=10,
         ),
         hovermode='x unified',
         margin=dict(l=0, r=0, t=30, b=0),
