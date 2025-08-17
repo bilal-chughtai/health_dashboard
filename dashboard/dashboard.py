@@ -593,10 +593,8 @@ def create_weekly_line_plot(
 
     # Resample daily data to weekly
     plot_df.set_index("date", inplace=True)
-    plot_df = plot_df.resample("W-MON", closed="left").sum().reset_index()
-    # Shift dates backward by one week to show the Monday that starts the week
-    plot_df.loc[:, "date"] = plot_df["date"] - pd.Timedelta(days=7)
-    # Then sort for display
+    plot_df = plot_df.resample("W-MON", closed="left", label="left").sum().reset_index()
+    # Sort for display
     plot_df = plot_df.sort_values("date")
 
     # Calculate rolling average (using 4 weeks as the window for weekly data)
@@ -1040,9 +1038,11 @@ def create_dual_axis_plot(
             # Create weekly summed data from buffered data (use full buffered data for proper rolling averages)
             weekly_df = buffered_plot_df[["date", metric]].copy()
             weekly_df.set_index("date", inplace=True)
-            weekly_df = weekly_df.resample("W-MON", closed="left").sum().reset_index()
-            # Shift dates backward by one week to show the Monday that starts the week
-            weekly_df.loc[:, "date"] = weekly_df["date"] - pd.Timedelta(days=7)
+            weekly_df = (
+                weekly_df.resample("W-MON", closed="left", label="left")
+                .sum()
+                .reset_index()
+            )
             weekly_df = weekly_df.sort_values("date")
 
             # Calculate 4-week rolling average on the full buffered data
