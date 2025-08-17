@@ -591,11 +591,24 @@ def create_weekly_line_plot(
     if plot_df[column].dtype == bool:
         plot_df[column] = plot_df[column].astype(float)
 
-    # Resample daily data to weekly
-    plot_df.set_index("date", inplace=True)
-    plot_df = plot_df.resample("W-MON", closed="left", label="left").sum().reset_index()
+        # Manually group data by week starting on Monday
+    plot_df = plot_df.copy()
+
+    # Use isoweekday() which is more reliable (Monday=1, Sunday=7)
+    # Start weeks on Monday: assign week's data to the Monday that starts THIS week
+    plot_df["week_start"] = plot_df["date"].apply(
+        lambda x: x - pd.Timedelta(days=x.isoweekday() - 1)
+    )
+
+    # Group by week and sum the values
+    weekly_data = plot_df.groupby("week_start")[column].sum().reset_index()
+    weekly_data = weekly_data.rename(columns={"week_start": "date"})
+
     # Sort for display
-    plot_df = plot_df.sort_values("date")
+    weekly_data = weekly_data.sort_values("date")
+
+    # Use the weekly data for the rest of the function
+    plot_df = weekly_data
 
     # Calculate rolling average (using 4 weeks as the window for weekly data)
     rolling_col = f"{column}_rolling"
@@ -1035,14 +1048,19 @@ def create_dual_axis_plot(
 
         # If metric is weekly summed, create weekly data
         if sum_weekly:
-            # Create weekly summed data from buffered data (use full buffered data for proper rolling averages)
+            # Manually group data by week starting on Monday
             weekly_df = buffered_plot_df[["date", metric]].copy()
-            weekly_df.set_index("date", inplace=True)
-            weekly_df = (
-                weekly_df.resample("W-MON", closed="left", label="left")
-                .sum()
-                .reset_index()
+
+            # Use isoweekday() which is more reliable (Monday=1, Sunday=7)
+            # Start weeks on Monday: assign week's data to the Monday that starts THIS week
+            weekly_df["week_start"] = weekly_df["date"].apply(
+                lambda x: x - pd.Timedelta(days=x.isoweekday() - 1)
             )
+
+            # Group by week and sum the values
+            weekly_df = weekly_df.groupby("week_start")[metric].sum().reset_index()
+            weekly_df = weekly_df.rename(columns={"week_start": "date"})
+
             weekly_df = weekly_df.sort_values("date")
 
             # Calculate 4-week rolling average on the full buffered data
