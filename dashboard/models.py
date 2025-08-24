@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from typing import TypeVar, Literal, ClassVar, Dict, Any
+from typing import TypeVar, Literal, ClassVar, Dict, Any, Type, Generic, Iterator
 import pandas as pd
 
 
@@ -416,8 +416,6 @@ class AllData(BaseModel):
 
     def update_with_new_data(self, new_daily_data: list[DailyData]) -> "AllData":
         """Update existing data with new data, preserving non-None values."""
-        from .registry import registry
-
         # Create a copy of current data
         updated_data = self.daily_data.copy()
 
@@ -429,7 +427,7 @@ class AllData(BaseModel):
                 # Get existing entry
                 existing = data_by_date[new_entry.date]
                 # Update each source field if it's not None in the new entry
-                for source in registry.get_sources():
+                for source in ["oura", "cronometer", "strava", "garmin", "manual"]:
                     new_source_data = getattr(new_entry, source)
                     existing_source_data = getattr(existing, source)
 

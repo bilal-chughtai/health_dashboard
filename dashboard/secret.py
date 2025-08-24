@@ -27,7 +27,7 @@ class SharedSecrets(BaseSettings):
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: SecretStr
     AWS_S3_BUCKET_NAME: str
-    AWS_CSV_FILENAME: str  # Filename of the encrypted CSV in S3
+    AWS_JSON_FILENAME: str  # Filename of the encrypted JSON in S3
     ENCRYPTION_KEY: SecretStr
 
     @classmethod
@@ -99,7 +99,7 @@ def _convert_streamlit_secrets_to_shared() -> Optional[SharedSecrets]:
             "AWS_ACCESS_KEY_ID": st.secrets["aws_access_key_id"],
             "AWS_SECRET_ACCESS_KEY": SecretStr(st.secrets["aws_secret_access_key"]),
             "AWS_S3_BUCKET_NAME": st.secrets["aws_s3_bucket_name"],
-            "AWS_CSV_FILENAME": st.secrets["aws_csv_filename"],
+            "AWS_JSON_FILENAME": st.secrets["aws_json_filename"],
             "ENCRYPTION_KEY": SecretStr(st.secrets["encryption_key"]),
         }
 

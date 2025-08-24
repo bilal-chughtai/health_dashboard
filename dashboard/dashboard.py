@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import math
 from typing import Optional, List, Tuple, Dict, Any
 import io
+from pathlib import Path
 from botocore.exceptions import ClientError
 from dashboard.models import (
     OuraData,
@@ -21,6 +22,8 @@ from dashboard.models import (
     GarminData,
     ManualData,
     MetricCategory,
+    AllData,
+    DailyData,
 )
 from dashboard.files import get_s3_client, decrypt_data, encrypt_data
 from dashboard.secret import get_shared_secrets
@@ -192,7 +195,7 @@ def initialize_session_state():
 @st.cache_data(ttl=CACHE_TTL)
 def download_data() -> Optional[pd.DataFrame]:
     """
-    Get data directly from AWS S3 with caching.
+    Get data from AWS S3 JSON file, decrypt it, load into AllData model, and convert to DataFrame.
     Returns None if data is not available.
     """
     try:
@@ -202,22 +205,31 @@ def download_data() -> Optional[pd.DataFrame]:
             s3_client = get_s3_client()
             secrets = get_shared_secrets()
             bucket = secrets.AWS_S3_BUCKET_NAME
-            csv_filename = secrets.AWS_CSV_FILENAME
 
-            # Get data file
+            # Get JSON data file
             try:
-                response = s3_client.get_object(Bucket=bucket, Key=csv_filename)
+                response = s3_client.get_object(
+                    Bucket=bucket, Key=secrets.AWS_JSON_FILENAME
+                )
                 encrypted_data = response["Body"].read()
                 decrypted_data = decrypt_data(encrypted_data)
 
-                # Read CSV directly into DataFrame
-                df = pd.read_csv(io.BytesIO(decrypted_data))
-                df["date"] = pd.to_datetime(df["date"])
+                # Parse JSON and load into AllData model
+                data_dict = json.loads(decrypted_data.decode("utf-8"))
+                all_data = AllData.load_from_json(data_dict)
+
+                # Save AllData to session state for reuse
+                st.session_state.current_all_data = all_data
+
+                # Convert to DataFrame using AllData method
+                df = all_data.to_dataframe()
                 return df
 
             except ClientError as e:
                 if e.response["Error"]["Code"] == "NoSuchKey":
-                    st.error(f"No data found in AWS (looking for {csv_filename})")
+                    st.error(
+                        f"No data found in AWS (looking for {secrets.AWS_JSON_FILENAME})"
+                    )
                     return None
                 raise
 
@@ -883,64 +895,47 @@ def create_manual_data_entry(df: pd.DataFrame):
             )
 
         if submitted:
-            # Check if we're using random data
+            # Check if we're using random data and disable entry
             secrets = get_shared_secrets()
-            if "random" in secrets.AWS_CSV_FILENAME.lower():
+            if "random" in secrets.AWS_JSON_FILENAME.lower():
                 st.warning("Manual data entry is disabled for this deployment.")
                 return
 
-            # Create a new ManualData entry
-            manual_data = ManualData(
-                source="manual",
-                date=datetime.combine(selected_date, datetime.min.time()),
-                bodyweight_kg=bodyweight if bodyweight is not None else None,
-                lift=lift,
-            )
-
-            # Convert to DataFrame row
-            new_data = {
-                "date": manual_data.date,
-                "manual__bodyweight_kg": manual_data.bodyweight_kg,
-                "manual__lift": manual_data.lift,
-            }
-
-            # Create temp data with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            temp_data = {"timestamp": timestamp, "data": new_data}
-
             try:
-                s3_client = get_s3_client()
-                secrets = get_shared_secrets()
-                bucket = secrets.AWS_S3_BUCKET_NAME
-
-                # Save temp file first
-                temp_key = f"temp_{timestamp}.json"
-                temp_json = json.dumps(temp_data, default=str)
-                encrypted_temp = encrypt_data(temp_json.encode("utf-8"))
-                s3_client.put_object(Bucket=bucket, Key=temp_key, Body=encrypted_temp)
-
-                # Then update main data file
-                # Check if a row for this date already exists
-                date_mask = df["date"].dt.date == selected_date
-                if date_mask.any():
-                    # Update existing row
-                    for col, value in new_data.items():
-                        if value is not None:  # Only update non-None values
-                            df.loc[date_mask, col] = value
+                # Get current data from session state - no need to download again
+                if "current_all_data" in st.session_state:
+                    all_data = st.session_state.current_all_data
                 else:
-                    # Create new row
-                    new_row = pd.DataFrame([new_data])
-                    df = pd.concat([df, new_row], ignore_index=True)
+                    st.error(
+                        "No data available. Please refresh the page to download data first."
+                    )
+                    return
 
-                # Convert to CSV and encrypt
-                csv_buffer = io.StringIO()
-                df.to_csv(csv_buffer, index=False)
-                encrypted_data = encrypt_data(csv_buffer.getvalue().encode("utf-8"))
-
-                # Upload to S3
-                s3_client.put_object(
-                    Bucket=bucket, Key=secrets.AWS_CSV_FILENAME, Body=encrypted_data
+                # Create a new ManualData entry
+                manual_data = ManualData(
+                    source="manual",
+                    date=datetime.combine(selected_date, datetime.min.time()),
+                    bodyweight_kg=bodyweight if bodyweight is not None else None,
+                    lift=lift,
                 )
+
+                # Create DailyData entry
+                daily_data = DailyData(date=manual_data.date, manual=manual_data)
+
+                # Update the AllData with new manual data
+                updated_all_data = all_data.update_with_new_data([daily_data])
+
+                # Encrypt and upload back to AWS
+                s3_client = get_s3_client()
+                bucket = secrets.AWS_S3_BUCKET_NAME
+                json_data = json.dumps(updated_all_data.to_json(), default=str)
+                encrypted_data = encrypt_data(json_data.encode("utf-8"))
+                s3_client.put_object(
+                    Bucket=bucket, Key=secrets.AWS_JSON_FILENAME, Body=encrypted_data
+                )
+
+                # Update session state with new data
+                st.session_state.current_all_data = updated_all_data
 
                 st.success(f"Data saved successfully!")
 
@@ -1276,7 +1271,7 @@ def main():
 
     # Check if we're using random data and show disclaimer
     secrets = get_shared_secrets()
-    if "random" in secrets.AWS_CSV_FILENAME.lower():
+    if "random" in secrets.AWS_JSON_FILENAME.lower():
         st.warning("⚠️ This data is entirely synthetic")
 
     # Check if a refresh was requested (and reset the flag)
@@ -1287,7 +1282,7 @@ def main():
         st.rerun()
         return  # Exit after rerun to prevent duplicate rendering
 
-    # Get data from AWS
+    # Get data from AWS S3 JSON file
     df = download_data()
     if df is None:
         st.error("Unable to load data. Please try again later.")
