@@ -22,6 +22,7 @@ class GoogleServiceAccount(BaseModel):
 
 class SharedSecrets(BaseSettings):
     """Secrets that are shared with the frontend (Streamlit)."""
+
     # AWS credentials
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: SecretStr
@@ -39,21 +40,22 @@ class SharedSecrets(BaseSettings):
 
 class AllSecrets(SharedSecrets):
     """All secrets including backend-only ones."""
+
     # Cronometer credentials
     CRONOMETER_USERNAME: str
     CRONOMETER_PASSWORD: SecretStr
-    
+
     # Strava credentials
     STRAVA_CLIENT_SECRET: SecretStr
     STRAVA_CLIENT_ID: str
-    
+
     # Oura credentials
     OURA_ACCESS_TOKEN: SecretStr
-    
+
     # Garmin credentials
     GARMIN_EMAIL: str
     GARMIN_PASSWORD: SecretStr
-    
+
     # Google Sheets configuration
     GSHEET_SHEET_NAME: str
     GSHEET_WORKSHEET_NAME: str
@@ -73,7 +75,9 @@ class AllSecrets(SharedSecrets):
         for key, value in data.items():
             if isinstance(value, SecretStr):
                 data[key] = value.get_secret_value()
-            elif isinstance(value, dict) and isinstance(value.get("private_key"), SecretStr):
+            elif isinstance(value, dict) and isinstance(
+                value.get("private_key"), SecretStr
+            ):
                 data[key]["private_key"] = value["private_key"].get_secret_value()
         return json.dumps(data, **kwargs)
 
@@ -89,7 +93,7 @@ def _convert_streamlit_secrets_to_shared() -> Optional[SharedSecrets]:
         # Check if we're running in Streamlit and secrets are available
         if not st.secrets:
             return None
-            
+
         # Convert Streamlit secrets to our model format
         secrets_dict = {
             "AWS_ACCESS_KEY_ID": st.secrets["aws_access_key_id"],
@@ -98,7 +102,7 @@ def _convert_streamlit_secrets_to_shared() -> Optional[SharedSecrets]:
             "AWS_CSV_FILENAME": st.secrets["aws_csv_filename"],
             "ENCRYPTION_KEY": SecretStr(st.secrets["encryption_key"]),
         }
-        
+
         return SharedSecrets(**secrets_dict)
     except Exception as e:
         print(f"Warning: Failed to load Streamlit secrets: {str(e)}")
@@ -114,7 +118,7 @@ def get_shared_secrets() -> SharedSecrets:
         if streamlit_secrets is not None:
             _shared_secrets = streamlit_secrets
             return _shared_secrets
-            
+
         # Fall back to JSON file if Streamlit secrets aren't available
         secrets_path = Path(__file__).parent.parent / ".secrets.json"
         if not secrets_path.exists():
@@ -122,7 +126,9 @@ def get_shared_secrets() -> SharedSecrets:
         try:
             _shared_secrets = SharedSecrets.from_json_file(secrets_path)
         except Exception as e:
-            raise ValueError(f"Failed to load shared secrets from {secrets_path}: {str(e)}")
+            raise ValueError(
+                f"Failed to load shared secrets from {secrets_path}: {str(e)}"
+            )
     return _shared_secrets
 
 
