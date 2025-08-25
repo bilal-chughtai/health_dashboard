@@ -223,6 +223,11 @@ def download_data() -> Optional[pd.DataFrame]:
 
                 # Convert to DataFrame using AllData method
                 df = all_data.to_dataframe()
+
+                # Ensure dataframe is sorted by date
+                if not df.empty and "date" in df.columns:
+                    df = df.sort_values("date").reset_index(drop=True)
+
                 return df
 
             except ClientError as e:
