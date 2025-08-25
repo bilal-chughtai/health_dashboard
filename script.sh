@@ -17,5 +17,5 @@ python -m dashboard.main --online >> log.txt 2>&1
 echo "" >> log.txt
 
 # Run the script in random mode
-python -m dashboard.random --online --random >> random_log.txt 2>&1
+python -m dashboard.main --online --random >> random_log.txt 2>&1
 echo "" >> random_log.txt
