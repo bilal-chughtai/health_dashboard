@@ -192,55 +192,75 @@ def initialize_session_state():
             st.session_state[key] = value
 
 
-@st.cache_data(ttl=CACHE_TTL)
-def download_data() -> Optional[pd.DataFrame]:
+def _download_and_parse_data() -> Tuple[Optional[pd.DataFrame], Optional["AllData"]]:
     """
-    Get data from AWS S3 JSON file, decrypt it, load into AllData model, and convert to DataFrame.
-    Returns None if data is not available.
+    Internal function to download and parse data from S3.
+    Returns tuple of (DataFrame, AllData) or (None, None) if failed.
     """
     try:
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{current_time}] Downloading health data from AWS S3...")
-        with st.spinner("Downloading data..."):
-            s3_client = get_s3_client()
-            secrets = get_shared_secrets()
-            bucket = secrets.AWS_S3_BUCKET_NAME
+        s3_client = get_s3_client()
+        secrets = get_shared_secrets()
+        bucket = secrets.AWS_S3_BUCKET_NAME
 
-            # Get JSON data file
-            try:
-                response = s3_client.get_object(
-                    Bucket=bucket, Key=secrets.AWS_JSON_FILENAME
+        # Get JSON data file
+        try:
+            response = s3_client.get_object(
+                Bucket=bucket, Key=secrets.AWS_JSON_FILENAME
+            )
+            encrypted_data = response["Body"].read()
+            decrypted_data = decrypt_data(encrypted_data)
+
+            # Parse JSON and load into AllData model
+            data_dict = json.loads(decrypted_data.decode("utf-8"))
+            all_data = AllData.load_from_json(data_dict)
+
+            # Convert to DataFrame using AllData method
+            df = all_data.to_dataframe()
+
+            # Ensure dataframe is sorted by date
+            if not df.empty and "date" in df.columns:
+                df = df.sort_values("date").reset_index(drop=True)
+
+            return df, all_data
+
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                st.error(
+                    f"No data found in AWS (looking for {secrets.AWS_JSON_FILENAME})"
                 )
-                encrypted_data = response["Body"].read()
-                decrypted_data = decrypt_data(encrypted_data)
-
-                # Parse JSON and load into AllData model
-                data_dict = json.loads(decrypted_data.decode("utf-8"))
-                all_data = AllData.load_from_json(data_dict)
-
-                # Save AllData to session state for reuse
-                st.session_state.current_all_data = all_data
-
-                # Convert to DataFrame using AllData method
-                df = all_data.to_dataframe()
-
-                # Ensure dataframe is sorted by date
-                if not df.empty and "date" in df.columns:
-                    df = df.sort_values("date").reset_index(drop=True)
-
-                return df
-
-            except ClientError as e:
-                if e.response["Error"]["Code"] == "NoSuchKey":
-                    st.error(
-                        f"No data found in AWS (looking for {secrets.AWS_JSON_FILENAME})"
-                    )
-                    return None
-                raise
+                return None, None
+            raise
 
     except Exception as e:
         st.error(f"Error getting data from AWS: {e}")
-        return None
+        return None, None
+
+
+@st.cache_data(ttl=CACHE_TTL)
+def download_data() -> Optional[pd.DataFrame]:
+    """
+    Cached wrapper that downloads data and returns DataFrame.
+    """
+    with st.spinner("Downloading data..."):
+        df, _ = _download_and_parse_data()
+        return df
+
+
+def ensure_all_data_in_session() -> Optional["AllData"]:
+    """
+    Ensure AllData is in session state, downloading if necessary.
+    Returns AllData object or None if not available.
+    """
+    if "current_all_data" not in st.session_state:
+        # Need to download fresh (bypassing cache)
+        with st.spinner("Loading data..."):
+            _, all_data = _download_and_parse_data()
+            if all_data:
+                st.session_state.current_all_data = all_data
+
+    return st.session_state.get("current_all_data")
 
 
 def get_column_metadata(
@@ -907,10 +927,9 @@ def create_manual_data_entry(df: pd.DataFrame):
                 return
 
             try:
-                # Get current data from session state - no need to download again
-                if "current_all_data" in st.session_state:
-                    all_data = st.session_state.current_all_data
-                else:
+                # Ensure we have AllData available
+                all_data = ensure_all_data_in_session()
+                if all_data is None:
                     st.error(
                         "No data available. Please refresh the page to download data first."
                     )
