@@ -242,25 +242,13 @@ def _download_and_parse_data() -> Tuple[Optional[pd.DataFrame], Optional["AllDat
 def download_data() -> Optional[pd.DataFrame]:
     """
     Cached wrapper that downloads data and returns DataFrame.
+    Also ensures AllData is available in session state.
     """
     with st.spinner("Downloading data..."):
-        df, _ = _download_and_parse_data()
+        df, all_data = _download_and_parse_data()
+        if all_data is not None:
+            st.session_state.current_all_data = all_data
         return df
-
-
-def ensure_all_data_in_session() -> Optional["AllData"]:
-    """
-    Ensure AllData is in session state, downloading if necessary.
-    Returns AllData object or None if not available.
-    """
-    if "current_all_data" not in st.session_state:
-        # Need to download fresh (bypassing cache)
-        with st.spinner("Loading data..."):
-            _, all_data = _download_and_parse_data()
-            if all_data:
-                st.session_state.current_all_data = all_data
-
-    return st.session_state.get("current_all_data")
 
 
 def get_column_metadata(
@@ -927,13 +915,13 @@ def create_manual_data_entry(df: pd.DataFrame):
                 return
 
             try:
-                # Ensure we have AllData available
-                all_data = ensure_all_data_in_session()
-                if all_data is None:
+                # Get current data from session state
+                if "current_all_data" not in st.session_state:
                     st.error(
                         "No data available. Please refresh the page to download data first."
                     )
                     return
+                all_data = st.session_state.current_all_data
 
                 # Create a new ManualData entry
                 manual_data = ManualData(

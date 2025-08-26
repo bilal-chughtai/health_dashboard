@@ -164,5 +164,6 @@ cython_debug/
 .secrets.json
 strava_access_token.json
 log.txt
+random_log.txt
 data/
 secrets.toml
