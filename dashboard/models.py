@@ -70,6 +70,21 @@ class OuraData(BaseData):
     sleep_hrv: float | None = Field(
         None, description="Average heart rate variability during sleep"
     )
+    time_in_bed_hours: float | None = Field(
+        None, description="Total time spent in bed in hours"
+    )
+    deep_sleep_hours: float | None = Field(
+        None, description="Total deep sleep duration in hours"
+    )
+    rem_sleep_hours: float | None = Field(
+        None, description="Total REM sleep duration in hours"
+    )
+    light_sleep_hours: float | None = Field(
+        None, description="Total light sleep duration in hours"
+    )
+    sleep_efficiency_percent: float | None = Field(
+        None, description="Sleep efficiency as percentage of time in bed"
+    )
 
     # Define metadata separately from fields
     _field_metadata = {
@@ -152,6 +167,56 @@ class OuraData(BaseData):
             display_delay=0,
             min_value=40,  # Very low HRV
             max_value=90,  # Very high HRV
+        ),
+        "time_in_bed_hours": MetricMetadata(
+            pretty_name="Time in Bed",
+            category=MetricCategory.RECOVERY,
+            description="Total time spent in bed",
+            unit="hours",
+            sum_weekly=False,
+            display_delay=0,
+            min_value=6,  # Minimum reasonable time in bed
+            max_value=12,  # Maximum reasonable time in bed
+        ),
+        "deep_sleep_hours": MetricMetadata(
+            pretty_name="Deep Sleep",
+            category=MetricCategory.RECOVERY,
+            description="Total deep sleep duration",
+            unit="hours",
+            sum_weekly=False,
+            display_delay=0,
+            min_value=0.5,  # Minimum reasonable deep sleep
+            max_value=3,  # Maximum reasonable deep sleep
+        ),
+        "rem_sleep_hours": MetricMetadata(
+            pretty_name="REM Sleep",
+            category=MetricCategory.RECOVERY,
+            description="Total REM sleep duration",
+            unit="hours",
+            sum_weekly=False,
+            display_delay=0,
+            min_value=0.5,  # Minimum reasonable REM sleep
+            max_value=3,  # Maximum reasonable REM sleep
+        ),
+        "light_sleep_hours": MetricMetadata(
+            pretty_name="Light Sleep",
+            category=MetricCategory.RECOVERY,
+            description="Total light sleep duration",
+            unit="hours",
+            sum_weekly=False,
+            display_delay=0,
+            min_value=2,  # Minimum reasonable light sleep
+            max_value=6,  # Maximum reasonable light sleep
+        ),
+        "sleep_efficiency_percent": MetricMetadata(
+            pretty_name="Sleep Efficiency",
+            category=MetricCategory.RECOVERY,
+            description="Sleep efficiency as percentage of time in bed",
+            unit="%",
+            sum_weekly=False,
+            display_delay=0,
+            min_value=70,  # Minimum reasonable efficiency
+            max_value=100,  # Maximum efficiency
         ),
     }
 
