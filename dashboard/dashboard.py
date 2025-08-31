@@ -525,11 +525,8 @@ def calculate_rolling_averages_with_buffer(
             # They will be calculated in the plotting function with proper buffer data
             df_with_buffer[f"{column}_rolling"] = None
         else:
-            # For daily metrics, calculate rolling average with appropriate window based on time range
-            if time_range in ["Past 6 Months", "Past Year", "All Time"]:
-                smoothing_window = 30
-            else:
-                smoothing_window = 7
+            # For daily metrics, always use monthly (30-day) rolling average
+            smoothing_window = 30
 
             rolling_col = f"{column}_rolling"
             df_with_buffer[rolling_col] = (
@@ -732,12 +729,8 @@ def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     # Use the pre-calculated rolling average
     rolling_col = f"{column}_rolling"
 
-    # Determine smoothing window for display purposes (should match what was used in calculation)
-    smoothing_window = (
-        30
-        if st.session_state.time_range in ["Past 6 Months", "Past Year", "All Time"]
-        else 7
-    )
+    # Always use monthly (30-day) smoothing window for display purposes
+    smoothing_window = 30
 
     df.loc[:, "hover_text"] = df.apply(
         lambda row: f"Actual: {row[column]:.1f}<br>"
@@ -984,12 +977,8 @@ def get_category_color(
 
 
 def get_smoothing_window(start_date: pd.Timestamp, end_date: pd.Timestamp) -> int:
-    """Determine the smoothing window based on the time range."""
-    date_range = end_date - start_date
-    if date_range.days > 90:  # More than 3 months
-        return 30
-    else:
-        return 7
+    """Always return monthly (30-day) smoothing window."""
+    return 30
 
 
 def create_dual_axis_plot(
