@@ -998,13 +998,26 @@ def create_dual_axis_plot(
     else:
         buffered_plot_df = plot_df.copy()
 
-    # Calculate correlation between the two metrics
-    correlation = plot_df[metric1].corr(plot_df[metric2])
-    correlation_text = (
-        f"Correlation: {correlation:.3f}"
-        if not pd.isna(correlation)
-        else "Correlation: N/A     "
+    # Calculate correlation between the raw metrics
+    raw_correlation = plot_df[metric1].corr(plot_df[metric2])
+    raw_correlation_text = (
+        f"Raw Correlation: {raw_correlation:.3f}"
+        if not pd.isna(raw_correlation)
+        else "Raw Correlation: N/A"
     )
+
+    # Calculate correlation between the 30-day averages
+    rolling_col1 = f"{metric1}_rolling"
+    rolling_col2 = f"{metric2}_rolling"
+    avg_correlation = plot_df[rolling_col1].corr(plot_df[rolling_col2])
+    avg_correlation_text = (
+        f"30-day Avg Correlation: {avg_correlation:.3f}"
+        if not pd.isna(avg_correlation)
+        else "30-day Avg Correlation: N/A"
+    )
+
+    # Combine correlation text
+    correlation_text = f"{raw_correlation_text}   |   {avg_correlation_text}"
 
     # Create figure with secondary y-axis
     fig = go.Figure()
