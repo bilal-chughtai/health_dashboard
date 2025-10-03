@@ -238,16 +238,33 @@ def _download_and_parse_data() -> Tuple[Optional[pd.DataFrame], Optional["AllDat
         return None, None
 
 
-@st.cache_data(ttl=CACHE_TTL)
 def download_data() -> Optional[pd.DataFrame]:
     """
-    Cached wrapper that downloads data and returns DataFrame.
+    Downloads data and returns DataFrame.
     Also ensures AllData is available in session state.
+    """
+    # Check if we have a cached DataFrame in session state (from manual updates)
+    if (
+        "cached_dataframe" in st.session_state
+        and st.session_state.cached_dataframe is not None
+    ):
+        return st.session_state.cached_dataframe
+
+    # Use cached download function for S3 data
+    return _download_data_cached()
+
+
+@st.cache_data(ttl=CACHE_TTL)
+def _download_data_cached() -> Optional[pd.DataFrame]:
+    """
+    Cached wrapper that downloads data from S3 and returns DataFrame.
     """
     with st.spinner("Downloading data..."):
         df, all_data = _download_and_parse_data()
         if all_data is not None:
             st.session_state.current_all_data = all_data
+            # Cache the DataFrame in session state for manual updates
+            st.session_state.cached_dataframe = df
         return df
 
 
@@ -336,6 +353,9 @@ def on_time_range_change():
 
 def on_refresh():
     st.cache_data.clear()
+    # Clear cached DataFrame to force fresh download
+    if "cached_dataframe" in st.session_state:
+        del st.session_state.cached_dataframe
     st.session_state.refresh_flag = True
 
 
@@ -841,6 +861,12 @@ def prepare_display_table(df: pd.DataFrame) -> pd.DataFrame:
 
 def create_manual_data_entry(df: pd.DataFrame):
     """Create a form for manual data entry."""
+    # Show success message if it exists
+    if "manual_success_message" in st.session_state:
+        st.success(st.session_state.manual_success_message)
+        # Clear the message after showing it
+        del st.session_state.manual_success_message
+
     # Get the date range for the date picker
     min_date = df["date"].min()
     # Allow dates up to 1 year in the future
@@ -942,7 +968,15 @@ def create_manual_data_entry(df: pd.DataFrame):
                 # Update session state with new data
                 st.session_state.current_all_data = updated_all_data
 
-                st.success(f"Data saved successfully!")
+                # Update the cached DataFrame directly instead of full reload
+                # Convert updated AllData back to DataFrame
+                updated_df = updated_all_data.to_dataframe()
+                if not updated_df.empty and "date" in updated_df.columns:
+                    updated_df = updated_df.sort_values("date").reset_index(drop=True)
+                st.session_state.cached_dataframe = updated_df
+
+                # Set success message in session state to persist across rerun
+                st.session_state.manual_success_message = "Data saved successfully!"
 
                 # Reset form state with today's date
                 st.session_state.manual_form_state = {
@@ -951,9 +985,7 @@ def create_manual_data_entry(df: pd.DataFrame):
                     "lift": None,
                 }
 
-                # Clear all caches and trigger refresh
-                st.cache_data.clear()
-                st.session_state.refresh_flag = True
+                # Trigger rerun - the updated DataFrame will be used
                 st.rerun()
 
             except Exception as e:
@@ -1293,6 +1325,9 @@ def main():
         st.session_state.refresh_flag = False
         # Clear all caches to ensure fresh data
         st.cache_data.clear()
+        # Clear cached DataFrame to force fresh download
+        if "cached_dataframe" in st.session_state:
+            del st.session_state.cached_dataframe
         st.rerun()
         return  # Exit after rerun to prevent duplicate rendering
 
