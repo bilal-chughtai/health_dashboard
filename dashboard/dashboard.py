@@ -934,13 +934,19 @@ def create_manual_data_entry(df: pd.DataFrame):
                 return
 
             try:
-                # Get current data from session state
+                # Get current data from session state, or download if not available
                 if "current_all_data" not in st.session_state:
-                    st.error(
-                        "No data available. Please refresh the page to download data first."
-                    )
-                    return
-                all_data = st.session_state.current_all_data
+                    # Automatically download data instead of showing error
+                    with st.spinner("Downloading data..."):
+                        df_temp, all_data = _download_and_parse_data()
+                        if all_data is None:
+                            st.error("Unable to load data. Please try again later.")
+                            return
+                        st.session_state.current_all_data = all_data
+                        # Also cache the DataFrame
+                        st.session_state.cached_dataframe = df_temp
+                else:
+                    all_data = st.session_state.current_all_data
 
                 # Create a new ManualData entry
                 manual_data = ManualData(
