@@ -13,8 +13,10 @@ from dashboard.models import CronometerData
 from dashboard.secret import get_all_secrets
 from dashboard.connectors.base import Connector
 
+
 class CronometerConnector(Connector[CronometerData]):
     """Connector for Cronometer data"""
+
     def __init__(self):
         """Initialize the CronometerConnector with credentials."""
         self.base_url = "https://cronometer.com/cronometer/app"
@@ -35,7 +37,9 @@ class CronometerConnector(Connector[CronometerData]):
         options = FirefoxOptions()
         options.add_argument("--headless")
 
-        driver = webdriver.Firefox(service=FirefoxService(GeckoDriverManager().install()), options=options)
+        driver = webdriver.Firefox(
+            service=FirefoxService(GeckoDriverManager().install()), options=options
+        )
 
         try:
             driver.get(url)
@@ -77,9 +81,7 @@ class CronometerConnector(Connector[CronometerData]):
         self.fetchnonce = response.text.split('"')[1]
 
     def get_data(
-        self,
-        start_date: datetime,
-        end_date: datetime
+        self, start_date: datetime, end_date: datetime
     ) -> list[CronometerData]:
         """Fetch Cronometer data for the given date range."""
         # Authenticate if needed
@@ -94,10 +96,12 @@ class CronometerConnector(Connector[CronometerData]):
         # Fetch nutrition data
         url = f"https://cronometer.com/export?nonce={self.fetchnonce}&generate=dailySummary&start={start_str}&end={end_str}"
         response = requests.get(url)
-        
+
         if response.status_code != 200:
-            print(f"Warning: Failed to fetch data from Cronometer API. Status code: {response.status_code}")
-            return [] 
+            print(
+                f"Warning: Failed to fetch data from Cronometer API. Status code: {response.status_code}"
+            )
+            return []
 
         # Parse CSV response
         csv_file = StringIO(response.text)
@@ -108,14 +112,24 @@ class CronometerConnector(Connector[CronometerData]):
         nutrition_data_list = []
         for entry in nutrition_entries:
             date = datetime.strptime(entry["Date"], "%Y-%m-%d")
+
+            # Parse saturated fat - Cronometer uses "Saturated (g)" as the column name
+            saturated_fat = None
+            if "Saturated (g)" in entry and entry["Saturated (g)"]:
+                try:
+                    saturated_fat = float(entry["Saturated (g)"])
+                except (ValueError, TypeError):
+                    saturated_fat = None
+
             nutrition_data = CronometerData(
                 source=self.source_name,
                 date=date,
                 calories=float(entry["Energy (kcal)"]),
                 protein=float(entry["Protein (g)"]),
                 carbs=float(entry["Carbs (g)"]),
-                fat=float(entry["Fat (g)"])
+                fat=float(entry["Fat (g)"]),
+                saturated_fat=saturated_fat,
             )
             nutrition_data_list.append(nutrition_data)
 
-        return nutrition_data_list 
+        return nutrition_data_list

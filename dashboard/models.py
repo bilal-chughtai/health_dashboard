@@ -228,6 +228,7 @@ class CronometerData(BaseData):
     protein: float | None = Field(None, description="Protein in grams")
     carbs: float | None = Field(None, description="Carbohydrates in grams")
     fat: float | None = Field(None, description="Fat in grams")
+    saturated_fat: float | None = Field(None, description="Saturated fat in grams")
 
     _field_metadata = {
         "calories": MetricMetadata(
@@ -269,6 +270,16 @@ class CronometerData(BaseData):
             display_delay=1,
             min_value=100,
             max_value=300,  # Very high fat diet
+        ),
+        "saturated_fat": MetricMetadata(
+            pretty_name="Saturated Fat",
+            category=MetricCategory.NUTRITION,
+            description="Saturated fat intake",
+            unit="g",
+            sum_weekly=False,
+            display_delay=1,
+            min_value=10,  # Minimum reasonable intake
+            max_value=100,  # Very high saturated fat diet
         ),
     }
 

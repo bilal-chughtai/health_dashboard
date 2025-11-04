@@ -144,13 +144,21 @@ def generate_random_data(start_date: datetime, end_date: datetime) -> List[Daily
                 40, 150
             )
             
+            # Saturated fat is typically 30-40% of total fat
+            saturated_fat_ratio = random.uniform(0.30, 0.40)
+            saturated_fat = np.clip(
+                fat * saturated_fat_ratio,
+                10, 60  # Reasonable range for saturated fat
+            )
+            
             cronometer_data = CronometerData(
                 source="cronometer",
                 date=date,
                 calories=round(calories),
                 protein=round(protein, 1),
                 carbs=round(carbs, 1),
-                fat=round(fat, 1)
+                fat=round(fat, 1),
+                saturated_fat=round(saturated_fat, 1)
             )
         
         # Generate Garmin running data (never Strava)
