@@ -43,6 +43,7 @@ CATEGORY_COLORS = {
 
 TIME_RANGES = {
     "Past Month": 30,
+    "Past 3 Months": 90,
     "Past 6 Months": 180,
     "Past Year": 365,
     "All Time": None,
