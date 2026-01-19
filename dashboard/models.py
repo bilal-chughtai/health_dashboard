@@ -85,6 +85,10 @@ class OuraData(BaseData):
     sleep_efficiency_percent: float | None = Field(
         None, description="Sleep efficiency as percentage of time in bed"
     )
+    bedtime_start: datetime | None = Field(
+        None, description="Bedtime start (when you went to bed)"
+    )
+    wake_time: datetime | None = Field(None, description="Wake time (when you woke up)")
 
     # Define metadata separately from fields
     _field_metadata = {
@@ -217,6 +221,22 @@ class OuraData(BaseData):
             display_delay=0,
             min_value=70,  # Minimum reasonable efficiency
             max_value=100,  # Maximum efficiency
+        ),
+        "bedtime_start": MetricMetadata(
+            pretty_name="Bedtime",
+            category=MetricCategory.RECOVERY,
+            description="Time when you went to bed",
+            unit="time",
+            sum_weekly=False,
+            display_delay=0,
+        ),
+        "wake_time": MetricMetadata(
+            pretty_name="Wake Time",
+            category=MetricCategory.RECOVERY,
+            description="Time when you woke up",
+            unit="time",
+            sum_weekly=False,
+            display_delay=0,
         ),
     }
 

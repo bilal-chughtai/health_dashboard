@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
 from plotly.graph_objs import Figure as PlotlyFigure
@@ -309,6 +310,48 @@ def update_plot_layout(
     fig, y_axis_label: str, y_min: Optional[float] = None, y_max: Optional[float] = None
 ):
     """Update plot layout with consistent styling and smaller margins."""
+    # Preserve existing y-axis tick formatting if it exists (for time columns)
+    preserve_tick_formatting = False
+    tickmode = None
+    tickvals = None
+    ticktext = None
+
+    if hasattr(fig.layout, "yaxis") and fig.layout.yaxis is not None:
+        yaxis = fig.layout.yaxis
+        # Check if tickmode is "array" (custom tick formatting)
+        if hasattr(yaxis, "tickmode"):
+            # Access tickmode as a string, not an attribute
+            try:
+                tickmode_val = yaxis.tickmode
+                if isinstance(tickmode_val, str) and tickmode_val == "array":
+                    preserve_tick_formatting = True
+                    tickmode = tickmode_val
+                    tickvals = getattr(yaxis, "tickvals", None)
+                    ticktext = getattr(yaxis, "ticktext", None)
+            except Exception:
+                pass
+
+    yaxis_dict = dict(
+        title_standoff=15,
+        title_font=dict(size=12, color="#7f8c8d"),
+        gridcolor="#ecf0f1",
+        zerolinecolor="#ecf0f1",
+        tickfont=dict(size=10, color="#7f8c8d"),
+        range=[y_min, y_max] if y_min is not None and y_max is not None else None,
+    )
+
+    # Preserve tick formatting for time columns
+    if (
+        preserve_tick_formatting
+        and tickmode
+        and tickvals is not None
+        and ticktext is not None
+    ):
+        yaxis_dict["tickmode"] = tickmode
+        yaxis_dict["tickvals"] = tickvals
+        yaxis_dict["ticktext"] = ticktext
+
+    # Build layout updates (without yaxis to preserve tick formatting)
     fig.update_layout(
         xaxis_title="",
         yaxis_title=y_axis_label,
@@ -317,14 +360,6 @@ def update_plot_layout(
         showlegend=False,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(
-            title_standoff=15,
-            title_font=dict(size=12, color="#7f8c8d"),
-            gridcolor="#ecf0f1",
-            zerolinecolor="#ecf0f1",
-            tickfont=dict(size=10, color="#7f8c8d"),
-            range=[y_min, y_max] if y_min is not None and y_max is not None else None,
-        ),
         xaxis=dict(
             gridcolor="#ecf0f1",
             zerolinecolor="#ecf0f1",
@@ -332,6 +367,10 @@ def update_plot_layout(
         ),
         hovermode="x unified",
     )
+
+    # Update y-axis separately to preserve tick formatting
+    # If we have tick formatting, it's already in yaxis_dict, otherwise use regular settings
+    fig.update_yaxes(**yaxis_dict)
 
 
 # Callback functions for radio buttons
@@ -537,6 +576,73 @@ def calculate_rolling_averages_with_buffer(
         # Get metadata for this column
         source, pretty_name, category, unit, sum_weekly = get_column_metadata(column)
 
+        # Handle datetime columns (bedtime_start, wake_time) - convert to hours since midnight
+        # Check both datetime64 dtype and object dtype containing datetime objects
+        is_datetime = pd.api.types.is_datetime64_any_dtype(df_with_buffer[column])
+        if not is_datetime and df_with_buffer[column].dtype == "object":
+            # Check if object column contains datetime objects
+            non_null_values = df_with_buffer[column].dropna()
+            if len(non_null_values) > 0:
+                sample_val = non_null_values.iloc[0]
+                is_datetime = isinstance(sample_val, datetime)
+            else:
+                is_datetime = False
+
+        if is_datetime:
+            # Convert datetime to hours since midnight (e.g., 8:30 AM = 8.5)
+            # For object dtype, we need to convert to datetime64 first or handle manually
+            if df_with_buffer[column].dtype == "object":
+                # Extract hours directly from datetime objects (handles timezone-aware datetimes)
+                def extract_hours(dt):
+                    if pd.isna(dt) or dt is None:
+                        return np.nan
+                    if isinstance(dt, datetime):
+                        # Get the hour, minute, second from the datetime object directly
+                        return dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+                    return np.nan
+
+                time_in_hours = df_with_buffer[column].apply(extract_hours)
+            else:
+                # Already datetime64, can use dt accessor directly
+                time_in_hours = (
+                    df_with_buffer[column].dt.hour
+                    + df_with_buffer[column].dt.minute / 60.0
+                    + df_with_buffer[column].dt.second / 3600.0
+                )
+
+            # Calculate circular average of time using unit vectors
+            # This properly handles times that cross midnight (e.g., 00:25 is close to 23:50)
+            smoothing_window = 30
+            rolling_col = f"{column}_rolling"
+
+            def circular_mean(values):
+                """Calculate circular mean of times in hours (0-24)."""
+                # Convert to numpy array and drop NaN
+                values = np.array(values)
+                values = values[~np.isnan(values)]
+                if len(values) == 0:
+                    return np.nan
+
+                # Convert hours to radians (0-24 hours -> 0-2π)
+                radians = values * 2 * np.pi / 24.0
+
+                # Convert to unit vectors and average
+                x = np.cos(radians).mean()
+                y = np.sin(radians).mean()
+
+                # Calculate mean angle
+                mean_angle = np.arctan2(y, x)
+
+                # Convert back to hours (0-24)
+                mean_hours = (mean_angle * 24.0 / (2 * np.pi)) % 24.0
+                return mean_hours
+
+            # Apply circular mean using rolling window
+            df_with_buffer[rolling_col] = time_in_hours.rolling(
+                window=smoothing_window, min_periods=1, center=False
+            ).apply(circular_mean, raw=True)
+            continue
+
         # Convert boolean values to float if needed
         if df_with_buffer[column].dtype == bool:
             df_with_buffer[column] = df_with_buffer[column].astype(float)
@@ -544,17 +650,21 @@ def calculate_rolling_averages_with_buffer(
         if sum_weekly:
             # For weekly summed metrics, we don't calculate rolling averages here
             # They will be calculated in the plotting function with proper buffer data
-            df_with_buffer[f"{column}_rolling"] = None
+            df_with_buffer[f"{column}_rolling"] = np.nan
         else:
             # For daily metrics, always use monthly (30-day) rolling average
             smoothing_window = 30
-
             rolling_col = f"{column}_rolling"
-            df_with_buffer[rolling_col] = (
-                df_with_buffer[column]
-                .rolling(window=smoothing_window, min_periods=1, center=False)
-                .mean()
-            )
+
+            # Check if column is numeric before calculating mean
+            if not pd.api.types.is_numeric_dtype(df_with_buffer[column]):
+                df_with_buffer[rolling_col] = np.nan
+            else:
+                df_with_buffer[rolling_col] = (
+                    df_with_buffer[column]
+                    .rolling(window=smoothing_window, min_periods=1, center=False)
+                    .mean()
+                )
 
     # Return the buffered data (not filtered) so plotting functions can work with it
     return df_with_buffer
@@ -614,6 +724,14 @@ def create_plot(
             )
         else:
             fig = create_daily_line_plot(plot_df, column, category_color)
+
+        # Check if this is a time column before updating layout
+        is_time_col = pd.api.types.is_datetime64_any_dtype(plot_df[column])
+        if not is_time_col and plot_df[column].dtype == "object":
+            non_null_values = plot_df[column].dropna()
+            if len(non_null_values) > 0:
+                sample_val = non_null_values.iloc[0]
+                is_time_col = isinstance(sample_val, datetime)
 
         update_plot_layout(fig, y_axis_label)
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -745,31 +863,164 @@ def create_weekly_line_plot(
 
 def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     """Create a daily line plot with rolling average."""
+    print(f"\n{'=' * 80}")
     df = df.copy()
 
     # Use the pre-calculated rolling average
     rolling_col = f"{column}_rolling"
 
+    # Check if this is a datetime column (bedtime_start or wake_time)
+    # Check both datetime64 dtype and object dtype containing datetime objects
+    is_time_column = pd.api.types.is_datetime64_any_dtype(df[column])
+    if not is_time_column and df[column].dtype == "object":
+        # Check if object column contains datetime objects
+        non_null_values = df[column].dropna()
+        if len(non_null_values) > 0:
+            sample_val = non_null_values.iloc[0]
+            is_time_column = isinstance(sample_val, datetime)
+
     # Always use monthly (30-day) smoothing window for display purposes
     smoothing_window = 30
 
-    df.loc[:, "hover_text"] = df.apply(
-        lambda row: f"Actual: {row[column]:.1f}<br>"
-        + f"{smoothing_window}-day Avg: {row[rolling_col]:.1f}"
-        if st.session_state.show_daily_traces
-        else f"{smoothing_window}-day Avg: {row[rolling_col]:.1f}",
-        axis=1,
-    )
+    # Format hover text - show times for datetime columns
+    if is_time_column:
 
-    rolling_min = df[rolling_col].min()
-    rolling_max = df[rolling_col].max()
-    rolling_range = rolling_max - rolling_min
-    y_min = rolling_min - (rolling_range * 0.1)
-    y_max = rolling_max + (rolling_range * 0.1)
+        def format_time(hours):
+            """Convert decimal hours to time string (e.g., 8.5 -> '8:30 AM')."""
+            if pd.isna(hours) or hours is None:
+                return "N/A"
+            hours = float(hours)
+            h = int(hours)
+            m = int((hours - h) * 60)
+            period = "AM" if h < 12 else "PM"
+            if h == 0:
+                h = 12
+            elif h > 12:
+                h = h - 12
+            return f"{h}:{m:02d} {period}"
 
-    y_columns = [rolling_col]
-    if st.session_state.show_daily_traces:
-        y_columns.insert(0, column)
+        def format_datetime(dt):
+            """Format datetime to time string."""
+            if pd.isna(dt):
+                return "N/A"
+            if hasattr(dt, "strftime"):
+                # Use %I (12-hour format) and remove leading zero manually if needed
+                time_str = dt.strftime("%I:%M %p")
+                # Remove leading zero from hour if present (e.g., "08:30 AM" -> "8:30 AM")
+                if time_str.startswith("0"):
+                    time_str = time_str[1:]
+                return time_str
+            return str(dt)
+
+        df.loc[:, "hover_text"] = df.apply(
+            lambda row: f"Actual: {format_datetime(row[column])}<br>"
+            + f"{smoothing_window}-day Avg: {format_time(row[rolling_col])}"
+            if st.session_state.show_daily_traces
+            else f"{smoothing_window}-day Avg: {format_time(row[rolling_col])}",
+            axis=1,
+        )
+    else:
+
+        def format_rolling_value(val):
+            """Format rolling average value, handling NaN/None."""
+            if pd.isna(val) or val is None:
+                return "N/A"
+            return f"{val:.1f}"
+
+        df.loc[:, "hover_text"] = df.apply(
+            lambda row: f"Actual: {row[column]:.1f}<br>"
+            + f"{smoothing_window}-day Avg: {format_rolling_value(row[rolling_col])}"
+            if st.session_state.show_daily_traces
+            else f"{smoothing_window}-day Avg: {format_rolling_value(row[rolling_col])}",
+            axis=1,
+        )
+
+    # Calculate y-axis range
+    if is_time_column and st.session_state.show_daily_traces:
+        # For datetime columns, convert original column to hours for range calculation
+        # Handle both datetime64 and object dtype
+        if df[column].dtype == "object":
+            datetime_series = pd.to_datetime(df[column], errors="coerce")
+            original_hours = (
+                datetime_series.dt.hour
+                + datetime_series.dt.minute / 60.0
+                + datetime_series.dt.second / 3600.0
+            )
+        else:
+            original_hours = (
+                df[column].dt.hour
+                + df[column].dt.minute / 60.0
+                + df[column].dt.second / 3600.0
+            )
+        all_values = pd.concat([original_hours, df[rolling_col]]).dropna()
+        y_min = all_values.min()
+        y_max = all_values.max()
+    else:
+        rolling_min = df[rolling_col].min()
+        rolling_max = df[rolling_col].max()
+        y_min = rolling_min
+        y_max = rolling_max
+
+    # For bedtime_start, adjust y-axis to start at midday (12:00) to avoid jarring jumps
+    # when times cross midnight. This makes the graph more continuous.
+    is_bedtime = "bedtime_start" in column
+    if is_time_column and is_bedtime:
+        # Shift values so that midday (12:00) is at 0, making the graph continuous
+        # Times after midnight (0-12) become 12-24, times before midnight (12-24) stay as 12-24
+        # This way 23:50 and 00:25 appear close together
+        if rolling_col in df.columns:
+            # Shift rolling average values
+            df[rolling_col] = (df[rolling_col] + 12) % 24
+            y_min = (y_min + 12) % 24
+            y_max = (y_max + 12) % 24
+            # Ensure range is correct (might need to swap if it wrapped)
+            if y_max < y_min:
+                y_min, y_max = y_max, y_min + 24
+
+    # Add padding (only if we have valid range)
+    if pd.notna(y_min) and pd.notna(y_max) and y_max > y_min:
+        rolling_range = y_max - y_min
+        padding = rolling_range * 0.05
+        y_min = y_min - padding
+        y_max = y_max + padding
+    else:
+        # Fallback range if we don't have valid data
+        if is_time_column:
+            y_min = 0
+            y_max = 24
+        else:
+            y_min = 0
+            y_max = 1
+
+    # For datetime columns, convert original column to hours for plotting
+    if is_time_column and st.session_state.show_daily_traces:
+        # Create a temporary column with hours for the original datetime
+        # Handle both datetime64 and object dtype
+        if df[column].dtype == "object":
+            # Extract hours directly from datetime objects
+            def extract_hours(dt):
+                if pd.isna(dt) or dt is None:
+                    return np.nan
+                if isinstance(dt, datetime):
+                    return dt.hour + dt.minute / 60.0 + dt.second / 3600.0
+                return np.nan
+
+            df[f"{column}_hours"] = df[column].apply(extract_hours)
+        else:
+            # Already datetime64, can use dt accessor directly
+            df[f"{column}_hours"] = (
+                df[column].dt.hour
+                + df[column].dt.minute / 60.0
+                + df[column].dt.second / 3600.0
+            )
+        # Shift bedtime hours to start at midday
+        if is_bedtime:
+            df[f"{column}_hours"] = (df[f"{column}_hours"] + 12) % 24
+        y_columns = [f"{column}_hours", rolling_col]
+    else:
+        y_columns = [rolling_col]
+        if st.session_state.show_daily_traces:
+            y_columns.insert(0, column)
 
     try:
         # Force using regular Scatter instead of Scattergl for better compatibility
@@ -801,13 +1052,75 @@ def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
         )
 
         if st.session_state.show_daily_traces:
+            # Update the trace for the original column (or its hours version)
+            if is_time_column:
+                trace_name = f"{column}_hours"
+            else:
+                trace_name = column
             fig.update_traces(
                 line=dict(color=color, width=1, smoothing=1.3, shape="spline"),
                 opacity=0.3,
                 hoverinfo="none",
                 hovertemplate=None,
                 line_shape="spline",
-                selector=dict(name=column),
+                selector=dict(name=trace_name),
+            )
+
+        # Format y-axis as times for datetime columns
+        if is_time_column:
+
+            def hours_to_time_str(hours):
+                """Convert decimal hours to time string for y-axis."""
+                h = int(hours)
+                m = int((hours - h) * 60)
+                period = "AM" if h < 12 else "PM"
+                if h == 0:
+                    h = 12
+                elif h > 12:
+                    h = h - 12
+                return f"{h}:{m:02d} {period}"
+
+            # For bedtime_start, adjust time formatting since values are shifted by +12 hours
+            # (midday = 0, so we need to convert back for display)
+            is_bedtime = "bedtime_start" in column
+
+            def hours_to_time_str_for_display(hours):
+                """Convert decimal hours to time string, handling bedtime shift."""
+                if is_bedtime:
+                    # Convert back from shifted time (where 0 = midday)
+                    # Shift by -12 to get actual time, then mod 24
+                    actual_hours = (hours - 12) % 24
+                else:
+                    actual_hours = hours
+                return hours_to_time_str(actual_hours)
+
+            # Calculate reasonable tick positions (every hour or every 30 minutes depending on range)
+            range_hours = y_max - y_min
+            if range_hours <= 6:
+                tick_interval = 0.5  # Every 30 minutes
+            elif range_hours <= 12:
+                tick_interval = 1.0  # Every hour
+            else:
+                tick_interval = 2.0  # Every 2 hours
+
+            # Generate tick positions
+            tick_start = (int(y_min / tick_interval) - 1) * tick_interval
+            tick_end = (int(y_max / tick_interval) + 1) * tick_interval
+            tick_vals = []
+            tick_texts = []
+            current = tick_start
+            while current <= tick_end:
+                tick_vals.append(current)
+                tick_texts.append(hours_to_time_str_for_display(current))
+                current += tick_interval
+
+            # Update y-axis tick format
+            fig.update_layout(
+                yaxis=dict(
+                    tickmode="array",
+                    tickvals=tick_vals,
+                    ticktext=tick_texts,
+                )
             )
 
         return fig
@@ -828,6 +1141,31 @@ def prepare_display_table(df: pd.DataFrame) -> pd.DataFrame:
     display_df["date"] = pd.to_datetime(display_df["date"])
     display_df["day"] = display_df["date"].apply(get_day_name)
     display_df["date"] = display_df["date"].apply(format_date)
+
+    # Format time columns (bedtime_start, wake_time) as time-only strings (HH:MM)
+    time_columns = ["bedtime_start", "wake_time"]
+    for col in time_columns:
+        # Check for both prefixed (e.g., "oura__bedtime_start") and unprefixed versions
+        matching_cols = [
+            c for c in display_df.columns if c.endswith(f"__{col}") or c == col
+        ]
+        for time_col in matching_cols:
+            if time_col in display_df.columns:
+
+                def format_time_only(dt):
+                    """Format datetime to time string (HH:MM)."""
+                    if pd.isna(dt) or dt is None:
+                        return ""
+                    if isinstance(dt, datetime):
+                        return dt.strftime("%H:%M")
+                    # Try to convert if it's a string or other type
+                    try:
+                        dt_obj = pd.to_datetime(dt)
+                        return dt_obj.strftime("%H:%M")
+                    except (ValueError, TypeError):
+                        return str(dt)
+
+                display_df[time_col] = display_df[time_col].apply(format_time_only)
 
     # Create new DataFrame with reordered columns
     cols = ["day", "date"] + [
@@ -1038,7 +1376,27 @@ def create_dual_axis_plot(
         buffered_plot_df = plot_df.copy()
 
     # Calculate correlation between the raw metrics
-    raw_correlation = plot_df[metric1].corr(plot_df[metric2])
+    # Convert datetime columns to numeric for correlation calculation
+    def to_numeric_for_corr(series):
+        """Convert series to numeric, handling datetime objects."""
+        if pd.api.types.is_datetime64_any_dtype(series):
+            # Already datetime64, convert to numeric (timestamp)
+            return series.astype("int64")
+        elif series.dtype == "object":
+            # Check if it contains datetime objects
+            sample = series.dropna().iloc[0] if series.notna().any() else None
+            if isinstance(sample, datetime):
+                # Convert datetime objects to numeric (timestamp)
+                return series.apply(
+                    lambda x: x.timestamp()
+                    if isinstance(x, datetime) and pd.notna(x)
+                    else np.nan
+                )
+        return series
+
+    metric1_numeric = to_numeric_for_corr(plot_df[metric1])
+    metric2_numeric = to_numeric_for_corr(plot_df[metric2])
+    raw_correlation = metric1_numeric.corr(metric2_numeric)
     raw_correlation_text = (
         f"Raw Correlation: {raw_correlation:.3f}"
         if not pd.isna(raw_correlation)

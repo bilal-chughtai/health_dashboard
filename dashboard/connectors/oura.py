@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TypedDict, cast, Any
 import logging
 from oura_ring import OuraClient
-import requests
 
 from dashboard.models import OuraData
 from dashboard.secret import get_all_secrets
@@ -132,7 +131,39 @@ class OuraConnector(Connector[OuraData]):
             total_rem_sleep = 0
             total_light_sleep = 0
 
-            for period in periods_by_day.get(sleep_entry["day"], []):
+            # Find the main sleep period (longest duration, or type="long_sleep") for bedtime/wake time
+            main_sleep_period = None
+            main_sleep_duration = 0
+            periods_for_day = periods_by_day.get(sleep_entry["day"], [])
+
+            for period in periods_for_day:
+                duration = period.get("total_sleep_duration")
+                if duration is None:
+                    duration = (
+                        period.get("deep_sleep_duration", 0)
+                        + period.get("light_sleep_duration", 0)
+                        + period.get("rem_sleep_duration", 0)
+                    )
+                # Prefer long_sleep type, otherwise use longest duration
+                if period.get("type") == "long_sleep" or (
+                    main_sleep_period is None or duration > main_sleep_duration
+                ):
+                    main_sleep_period = period
+                    main_sleep_duration = duration
+
+            # Extract bedtime and wake time from main sleep period
+            bedtime_start = None
+            wake_time = None
+            if main_sleep_period:
+                bedtime_start_str = main_sleep_period.get("bedtime_start")
+                bedtime_end_str = main_sleep_period.get("bedtime_end")
+                if bedtime_start_str:
+                    # Parse ISO format timestamp (e.g., "2026-01-10T00:28:00.000+00:00")
+                    bedtime_start = datetime.fromisoformat(bedtime_start_str)
+                if bedtime_end_str:
+                    wake_time = datetime.fromisoformat(bedtime_end_str)
+
+            for period in periods_for_day:
                 # Calculate duration
                 duration = period.get("total_sleep_duration")
                 if duration is None:
@@ -205,20 +236,6 @@ class OuraConnector(Connector[OuraData]):
             if total_time_in_bed > 0 and total_duration > 0:
                 sleep_efficiency = (total_duration / total_time_in_bed) * 100
 
-            # Print new calculations for sanity checking
-            print(f"Date: {sleep_entry['day']}")
-            print(f"  Time in bed: {total_time_in_bed / 3600:.2f}h")
-            print(f"  Deep sleep: {total_deep_sleep / 3600:.2f}h")
-            print(f"  REM sleep: {total_rem_sleep / 3600:.2f}h")
-            print(f"  Light sleep: {total_light_sleep / 3600:.2f}h")
-            print(f"  Total sleep: {total_duration / 3600:.2f}h")
-            print(
-                f"  Sleep efficiency: {sleep_efficiency:.1f}%"
-                if sleep_efficiency
-                else "  Sleep efficiency: N/A"
-            )
-            print()
-
             oura_data = OuraData(
                 source=self.source_name,
                 date=date,
@@ -245,6 +262,8 @@ class OuraConnector(Connector[OuraData]):
                 if total_light_sleep > 0
                 else None,
                 sleep_efficiency_percent=sleep_efficiency,
+                bedtime_start=bedtime_start,
+                wake_time=wake_time,
             )
             oura_data_list.append(oura_data)
 
