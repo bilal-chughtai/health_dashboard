@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional
 import json
-from pydantic import BaseModel, Field, SecretStr, validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings
 import streamlit as st
 
@@ -22,6 +22,8 @@ class GoogleServiceAccount(BaseModel):
 
 class SharedSecrets(BaseSettings):
     """Secrets that are shared with the frontend (Streamlit)."""
+
+    model_config = ConfigDict(extra="ignore")  # e.g. LIFT_DATES_SHEET_CSV_URL lives only in .secrets.json
 
     # AWS credentials
     AWS_ACCESS_KEY_ID: str
@@ -102,7 +104,6 @@ def _convert_streamlit_secrets_to_shared() -> Optional[SharedSecrets]:
             "AWS_JSON_FILENAME": st.secrets["aws_json_filename"],
             "ENCRYPTION_KEY": SecretStr(st.secrets["encryption_key"]),
         }
-
         return SharedSecrets(**secrets_dict)
     except Exception as e:
         print(f"Warning: Failed to load Streamlit secrets: {str(e)}")
@@ -130,6 +131,19 @@ def get_shared_secrets() -> SharedSecrets:
                 f"Failed to load shared secrets from {secrets_path}: {str(e)}"
             )
     return _shared_secrets
+
+
+def get_lift_dates_csv_url() -> Optional[str]:
+    """Backend-only: read lift-dates CSV URL from .secrets.json (not exposed to Streamlit)."""
+    try:
+        path = Path(__file__).parent.parent / ".secrets.json"
+        if path.exists():
+            with open(path) as f:
+                data = json.load(f)
+            return data.get("LIFT_DATES_SHEET_CSV_URL")
+    except Exception:
+        pass
+    return None
 
 
 def get_all_secrets() -> AllSecrets:

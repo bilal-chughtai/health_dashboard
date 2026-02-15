@@ -27,7 +27,7 @@ from dashboard.models import (
     DailyData,
 )
 from dashboard.files import get_s3_client, decrypt_data, encrypt_data
-from dashboard.secret import get_shared_secrets
+from dashboard.secret import get_shared_secrets, get_lift_dates_csv_url
 import json
 
 # Constants and Configuration
@@ -52,6 +52,7 @@ TIME_RANGES = {
 
 # Cache settings
 CACHE_TTL = timedelta(minutes=30)  # Cache data for 30 minutes
+
 
 # Custom CSS and JavaScript
 CUSTOM_CSS = """
@@ -217,6 +218,31 @@ def _download_and_parse_data() -> Tuple[Optional[pd.DataFrame], Optional["AllDat
             # Parse JSON and load into AllData model
             data_dict = json.loads(decrypted_data.decode("utf-8"))
             all_data = AllData.load_from_json(data_dict)
+
+            # Merge lift=True from configured lift-dates CSV into manual data (data table)
+            from dashboard.connectors.manual import _fetch_lift_dates_from_csv
+
+            csv_url = get_lift_dates_csv_url()
+            if csv_url:
+                try:
+                    lift_dates = _fetch_lift_dates_from_csv(csv_url, debug=False)
+                    for d in lift_dates:
+                        dt = datetime.combine(d, datetime.min.time())
+                        all_data = all_data.update_with_new_data(
+                            [
+                                DailyData(
+                                    date=dt,
+                                    manual=ManualData(
+                                        source="manual",
+                                        date=dt,
+                                        bodyweight_kg=None,
+                                        lift=True,
+                                    ),
+                                )
+                            ]
+                        )
+                except Exception:
+                    pass
 
             # Convert to DataFrame using AllData method
             df = all_data.to_dataframe()
