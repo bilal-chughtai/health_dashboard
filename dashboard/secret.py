@@ -143,8 +143,7 @@ def get_shared_secrets() -> SharedSecrets:
         if not secrets_path.exists():
             reason = _streamlit_secrets_failure_reason()
             logger.error(
-                "Secrets: file %s not found; Streamlit reason: %s",
-                secrets_path,
+                "Secrets: .secrets.json not found and Streamlit secrets unavailable: %s",
                 reason,
             )
             raise FileNotFoundError(

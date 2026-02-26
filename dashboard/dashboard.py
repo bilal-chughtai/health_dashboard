@@ -220,12 +220,12 @@ def _download_and_parse_data() -> Tuple[Optional[pd.DataFrame], Optional["AllDat
             all_data = AllData.load_from_json(data_dict)
 
             # Merge lift=True from configured lift-dates CSV into manual data (data table)
-            from dashboard.connectors.manual import _fetch_lift_dates_from_csv
+            from dashboard.lift_dates import fetch_lift_dates_from_csv
 
             csv_url = get_lift_dates_csv_url()
             if csv_url:
                 try:
-                    lift_dates = _fetch_lift_dates_from_csv(csv_url, debug=False)
+                    lift_dates = fetch_lift_dates_from_csv(csv_url, debug=False)
                     for d in lift_dates:
                         dt = datetime.combine(d, datetime.min.time())
                         all_data = all_data.update_with_new_data(

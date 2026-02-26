@@ -12,7 +12,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from datetime import datetime, timedelta
 
-from dashboard.connectors.manual import _fetch_lift_dates_from_csv, ManualConnector
+from dashboard.lift_dates import fetch_lift_dates_from_csv
+from dashboard.connectors.manual import ManualConnector
 from dashboard.secret import get_lift_dates_csv_url
 
 
@@ -24,7 +25,7 @@ def main() -> None:
         return
 
     print("Fetching lift dates from CSV...")
-    dates = _fetch_lift_dates_from_csv(url, debug=True)
+    dates = fetch_lift_dates_from_csv(url, debug=True)
     if not dates:
         print("No dates parsed. Check CSV URL and that the sheet has a 'Date' column (YYYY-MM-DD).")
         return
