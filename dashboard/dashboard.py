@@ -889,7 +889,6 @@ def create_weekly_line_plot(
 
 def create_daily_line_plot(df: pd.DataFrame, column: str, color: str) -> Any:
     """Create a daily line plot with rolling average."""
-    print(f"\n{'=' * 80}")
     df = df.copy()
 
     # Use the pre-calculated rolling average

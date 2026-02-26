@@ -1,9 +1,13 @@
+import json
+import logging
 from pathlib import Path
 from typing import Optional
-import json
+
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleServiceAccount(BaseModel):
@@ -92,11 +96,10 @@ _all_secrets: Optional[AllSecrets] = None
 def _convert_streamlit_secrets_to_shared() -> Optional[SharedSecrets]:
     """Convert Streamlit secrets to our SharedSecrets model if available."""
     try:
-        # Check if we're running in Streamlit and secrets are available
         if not st.secrets:
+            logger.info("Secrets: st.secrets is empty or not set")
             return None
 
-        # Convert Streamlit secrets to our model format
         secrets_dict = {
             "AWS_ACCESS_KEY_ID": st.secrets["aws_access_key_id"],
             "AWS_SECRET_ACCESS_KEY": SecretStr(st.secrets["aws_secret_access_key"]),
@@ -104,29 +107,58 @@ def _convert_streamlit_secrets_to_shared() -> Optional[SharedSecrets]:
             "AWS_JSON_FILENAME": st.secrets["aws_json_filename"],
             "ENCRYPTION_KEY": SecretStr(st.secrets["encryption_key"]),
         }
+        logger.info("Secrets: loaded from Streamlit (st.secrets)")
         return SharedSecrets(**secrets_dict)
     except Exception as e:
-        print(f"Warning: Failed to load Streamlit secrets: {str(e)}")
+        logger.warning("Secrets: Streamlit conversion failed: %s", e, exc_info=True)
         return None
+
+
+def _streamlit_secrets_failure_reason() -> str:
+    """Run conversion and return the exception message if it fails (for error reporting)."""
+    try:
+        if not st.secrets:
+            return "st.secrets is empty or not set"
+        st.secrets["aws_access_key_id"]
+        st.secrets["aws_secret_access_key"]
+        st.secrets["aws_s3_bucket_name"]
+        st.secrets["aws_json_filename"]
+        st.secrets["encryption_key"]
+        return "unknown (conversion failed)"
+    except Exception as e:
+        return str(e)
 
 
 def get_shared_secrets() -> SharedSecrets:
     """Get the global shared secrets instance, initializing it if necessary."""
     global _shared_secrets
     if _shared_secrets is None:
-        # First try to load from Streamlit secrets
+        logger.info("Secrets: loading shared secrets (Streamlit first, then .secrets.json)")
         streamlit_secrets = _convert_streamlit_secrets_to_shared()
         if streamlit_secrets is not None:
             _shared_secrets = streamlit_secrets
             return _shared_secrets
 
-        # Fall back to JSON file if Streamlit secrets aren't available
         secrets_path = Path(__file__).parent.parent / ".secrets.json"
         if not secrets_path.exists():
-            raise FileNotFoundError(f"Secrets file not found at {secrets_path}")
+            reason = _streamlit_secrets_failure_reason()
+            logger.error(
+                "Secrets: file %s not found; Streamlit reason: %s",
+                secrets_path,
+                reason,
+            )
+            raise FileNotFoundError(
+                "Secrets not available. "
+                "On Streamlit Cloud: set secrets in App → Settings → Secrets "
+                "(aws_access_key_id, aws_secret_access_key, aws_s3_bucket_name, aws_json_filename, encryption_key). "
+                f"Streamlit secrets reason: {reason}. "
+                "Locally: add .secrets.json in the project root."
+            )
+        logger.info("Secrets: loading from .secrets.json at %s", secrets_path)
         try:
             _shared_secrets = SharedSecrets.from_json_file(secrets_path)
         except Exception as e:
+            logger.exception("Secrets: failed to load from .secrets.json: %s", e)
             raise ValueError(
                 f"Failed to load shared secrets from {secrets_path}: {str(e)}"
             )
@@ -140,9 +172,13 @@ def get_lift_dates_csv_url() -> Optional[str]:
         if path.exists():
             with open(path) as f:
                 data = json.load(f)
-            return data.get("LIFT_DATES_SHEET_CSV_URL")
-    except Exception:
-        pass
+            url = data.get("LIFT_DATES_SHEET_CSV_URL")
+            if url:
+                logger.debug("Secrets: LIFT_DATES_SHEET_CSV_URL found in .secrets.json")
+            return url
+        logger.debug("Secrets: .secrets.json not found, no lift-dates URL")
+    except Exception as e:
+        logger.debug("Secrets: could not read lift-dates URL: %s", e)
     return None
 
 
@@ -151,7 +187,9 @@ def get_all_secrets() -> AllSecrets:
     global _all_secrets
     if _all_secrets is None:
         secrets_path = Path(__file__).parent.parent / ".secrets.json"
+        logger.info("Secrets: loading all secrets from %s", secrets_path)
         if not secrets_path.exists():
+            logger.error("Secrets: file not found at %s", secrets_path)
             raise FileNotFoundError(f"Secrets file not found at {secrets_path}")
         _all_secrets = AllSecrets.from_json_file(secrets_path)
     return _all_secrets
