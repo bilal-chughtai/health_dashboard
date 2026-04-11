@@ -622,13 +622,13 @@ test = ["pytest", "pytest-cov", "pytest-mpl", "pytest-subtests"]
 
 [[package]]
 name = "garminconnect"
-version = "0.3.1"
+version = "0.3.2"
 description = "Python 3 API wrapper for Garmin Connect"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "garminconnect-0.3.1-py3-none-any.whl", hash = "sha256:f19fc32c25fba580c8c790a8676d5e52c6048a0ab17a6983ea9c18672b782fe3"},
-    {file = "garminconnect-0.3.1.tar.gz", hash = "sha256:3124ba9ab0041833a7b173a7f7b05e925f11d40554e3a3ba03496d0e9b169efd"},
+    {file = "garminconnect-0.3.2-py3-none-any.whl", hash = "sha256:d0b6f332c3262209ef3e48e9a49ccf797a70ff5a7fbd9a546a9c4e9375654106"},
+    {file = "garminconnect-0.3.2.tar.gz", hash = "sha256:ca9d813139cb5f81cd6fc90236a225608e7e13acd7b1034170b0facfdd072d9a"},
 ]
 
 [package.dependencies]
@@ -2752,4 +2752,4 @@ h11 = ">=0.9.0,<1"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "541f9c5e8ff5317d4ca2711ee877e016813d73b4c351b1d43165c6a2e0b2fc45"
+content-hash = "8eb478d9f51bb91649086a80f3192cabe1d38b9e8789f15949de8153dc939fbc"
